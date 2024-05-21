@@ -7,6 +7,7 @@ use AmoCRM\Exceptions\AmoCRMApiException;
 use Exception;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Validation\ValidationException;
 use Spatie\LaravelIgnition\Facades\Flare;
@@ -20,7 +21,8 @@ class Handler extends ExceptionHandler
     public function register(): void
     {
         $this->reportable(function (Throwable|Exception $e) {
-            logger()->error(
+            if (App::isLocal()) dd($e);
+            if (App::isProduction()) logger()->error(
                 $e->getMessage(),
                 array_merge(
                     $this->exceptionContext($e),
