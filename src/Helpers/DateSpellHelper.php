@@ -1,4 +1,5 @@
 <?php
+
 namespace Leolnid\Common\Helpers;
 
 use Carbon\Carbon;
@@ -7,7 +8,7 @@ use Illuminate\Support\Str;
 
 class DateSpellHelper
 {
-    static function format(Carbon $date): string
+    public static function format(Carbon $date): string
     {
         return Str::ucfirst(self::dayToString($date->format('d'))
             .self::monthToString($date->format('m'))
@@ -16,7 +17,7 @@ class DateSpellHelper
 
     private static function dayToString($day): string
     {
-        $ones = array(
+        $ones = [
             '',
             'первое ',
             'второе ',
@@ -26,11 +27,11 @@ class DateSpellHelper
             'шестое ',
             'седьмое ',
             'восьмое ',
-            'девятое '
-        );
-        $tens0 = array('', '', 'двадцать ', 'тридцать ');
-        $tens = array('', 'десятое ', 'двадцатое ', 'тридцатое ');
-        $teens = array(
+            'девятое ',
+        ];
+        $tens0 = ['', '', 'двадцать ', 'тридцать '];
+        $tens = ['', 'десятое ', 'двадцатое ', 'тридцатое '];
+        $teens = [
             '',
             'одиннадцатое ',
             'двенадцатое ',
@@ -40,8 +41,8 @@ class DateSpellHelper
             'шестнадцатое ',
             'семнадцатое ',
             'восемнадцатое ',
-            'девятнадцатое '
-        );
+            'девятнадцатое ',
+        ];
 
         switch ($day) {
             case $day < 10:
@@ -57,28 +58,29 @@ class DateSpellHelper
 
     private static function monthToString(int $mon): string
     {
-        $arrMonth = array(
+        $arrMonth = [
             '',
-            "января",
-            "февраля",
-            "марта",
-            "апреля",
-            "мая",
-            "июня ",
-            "июля",
-            "августа",
-            "сентября",
-            "октября",
-            "ноября",
-            "декабря"
-        );
+            'января',
+            'февраля',
+            'марта',
+            'апреля',
+            'мая',
+            'июня ',
+            'июля',
+            'августа',
+            'сентября',
+            'октября',
+            'ноября',
+            'декабря',
+        ];
+
         return $arrMonth[$mon].' ';
     }
 
     private static function yearToString(int $year): string
     {
         $arrTeens = [];
-        $arrTens = array(
+        $arrTens = [
             '',
             '',
             'двадцать ',
@@ -88,10 +90,10 @@ class DateSpellHelper
             'шестьдесят ',
             'семьдесят ',
             'восемьдесят ',
-            'девяносто '
-        );
+            'девяносто ',
+        ];
         $arrTens0 = [];
-        $arrFour = array(
+        $arrFour = [
             '',
             'первого ',
             'второго ',
@@ -101,11 +103,11 @@ class DateSpellHelper
             'шестого ',
             'седьмого ',
             'восьмого ',
-            'девятого '
-        );
+            'девятого ',
+        ];
 
         if (substr($year, 2, 1) == 1) {
-            $arrTeens = array(
+            $arrTeens = [
                 '',
                 'одиннадцатого ',
                 'двенадцатого ',
@@ -115,13 +117,13 @@ class DateSpellHelper
                 'шестнадцатого ',
                 'семнадцатого ',
                 'восемнадцатого ',
-                'девятнадцатого '
-            );
+                'девятнадцатого ',
+            ];
             $arrFour = [];
         }
 
         if (substr($year, 3, 1) == 0) {
-            $arrTens0 = array(
+            $arrTens0 = [
                 '',
                 'десятого ',
                 'двадцатого ',
@@ -131,20 +133,20 @@ class DateSpellHelper
                 'шестидесятого ',
                 'семидесятого ',
                 'восьмидесятого ',
-                'девяностого '
-            );
+                'девяностого ',
+            ];
             $arrTens = [];
             $arrFour = [];
         }
 
         switch ($year) {
-            case ($year > 2000 and $year < 2038):
+            case $year > 2000 and $year < 2038:
                 $strOne = 'две тысячи ';
                 break;
-            case ($year < 2000 and $year > 1901):
+            case $year < 2000 and $year > 1901:
                 $strOne = 'одна тысяча девятьсот ';
                 break;
-            case ($year == 2000):
+            case $year == 2000:
                 $strOne = 'двухтысячного ';
                 break;
             default:

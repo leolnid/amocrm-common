@@ -15,7 +15,7 @@ class AddToContextMiddleware
                 'route' => [
                     'name' => $request->route()?->getName(),
                     'path' => $request->path(),
-                ]
+                ],
             ]);
         } catch (Throwable) {
         }

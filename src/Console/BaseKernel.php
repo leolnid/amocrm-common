@@ -13,18 +13,20 @@ use Symfony\Component\Finder\Finder;
 
 abstract class BaseKernel
 {
-    public abstract function schedule(Schedule $schedule): void;
+    abstract public function schedule(Schedule $schedule): void;
 
-    public abstract function commands(ServiceProvider $provider): void;
+    abstract public function commands(ServiceProvider $provider): void;
 
     protected function load(ServiceProvider $provider, string $namespace, $root): void
     {
-        $paths = array_unique(Arr::wrap($root . DIRECTORY_SEPARATOR . 'Commands'));
-        $paths = array_filter($paths, fn($path) => is_dir($path));
+        $paths = array_unique(Arr::wrap($root.DIRECTORY_SEPARATOR.'Commands'));
+        $paths = array_filter($paths, fn ($path) => is_dir($path));
 
-        if (empty($paths)) return;
+        if (empty($paths)) {
+            return;
+        }
 
-        $dir = str_replace('/', "\\", $root);
+        $dir = str_replace('/', '\\', $root);
         foreach ((new Finder())->in($paths)->files() as $file) {
             $command = str_replace(
                 [DIRECTORY_SEPARATOR, $dir],
@@ -33,7 +35,7 @@ abstract class BaseKernel
             );
 
             try {
-                if (is_subclass_of($command, Command::class) && !(new ReflectionClass($command))->isAbstract()) {
+                if (is_subclass_of($command, Command::class) && ! (new ReflectionClass($command))->isAbstract()) {
                     $provider->commands($command);
                 }
             } catch (ReflectionException $e) {

@@ -13,6 +13,7 @@ use Illuminate\Validation\ValidationException;
 use Spatie\LaravelIgnition\Facades\Flare;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
+
 use function Sentry\addBreadcrumb;
 use function Sentry\captureException;
 
@@ -21,14 +22,18 @@ class Handler extends ExceptionHandler
     public function register(): void
     {
         $this->reportable(function (Throwable|Exception $e) {
-            if (App::isLocal()) dd($e);
-            if (App::isProduction()) logger()->error(
-                $e->getMessage(),
-                array_merge(
-                    $this->exceptionContext($e),
-                    $this->context(),
-                )
-            );
+            if (App::isLocal()) {
+                dd($e);
+            }
+            if (App::isProduction()) {
+                logger()->error(
+                    $e->getMessage(),
+                    array_merge(
+                        $this->exceptionContext($e),
+                        $this->context(),
+                    )
+                );
+            }
         });
 
         $this->reportable(function (Throwable $e) {
@@ -45,9 +50,10 @@ class Handler extends ExceptionHandler
                 return response()->json([
                     'success' => false,
                     'data' => $this->convertExceptionToArray($e),
-                    'time' => microtime(true) - LARAVEL_START
+                    'time' => microtime(true) - LARAVEL_START,
                 ], $e->getStatusCode());
             }
+
             return null;
         });
 
@@ -56,9 +62,10 @@ class Handler extends ExceptionHandler
                 return response()->json([
                     'success' => false,
                     'data' => $this->convertExceptionToArray($e),
-                    'time' => microtime(true) - LARAVEL_START
+                    'time' => microtime(true) - LARAVEL_START,
                 ], 422);
             }
+
             return null;
         });
     }
@@ -73,7 +80,7 @@ class Handler extends ExceptionHandler
         return [
             'message' => $e->getMessage(),
             'exception' => get_class($e),
-            'file' => $e->getFile() . ':' . $e->getLine(),
+            'file' => $e->getFile().':'.$e->getLine(),
             ...(is_null($e->getPrevious()) ? [] : ['previous' => $this->convertExceptionToArray($e->getPrevious())]),
             ...($this->getExceptionContext($e)),
         ];
@@ -120,6 +127,8 @@ class Handler extends ExceptionHandler
         }
 
         $previous = $e->getPrevious();
-        if (!is_null($previous)) $this->addSentryBreadcrumbs($previous);
+        if (! is_null($previous)) {
+            $this->addSentryBreadcrumbs($previous);
+        }
     }
 }

@@ -22,8 +22,7 @@ class EntityFinder
 {
     public function __construct(
         protected readonly Companies|Contacts $service,
-    )
-    {
+    ) {
     }
 
     /**
@@ -44,13 +43,15 @@ class EntityFinder
                 /** @var ContactModel|CompanyModel $entity */
                 foreach ($entities as $entity) {
                     /** @var Collection $phones */
-                    $phones = Fielder::getPhones($entity)?->map(fn($phone) => $this->formatPhone($phone));
-                    $emails = Fielder::getEmails($entity)?->map(fn($email) => $this->formatEmail($email));
+                    $phones = Fielder::getPhones($entity)?->map(fn ($phone) => $this->formatPhone($phone));
+                    $emails = Fielder::getEmails($entity)?->map(fn ($email) => $this->formatEmail($email));
 
                     // Возвращает индекс найденного элемента, от 0 до N
                     // ВАЖНО: Если не нашел - вернет false. Нужна строгая проверка
                     if ($phones?->search($this->formatPhone($value)) === false &&
-                        $emails?->search($this->formatEmail($value)) === false) continue;
+                        $emails?->search($this->formatEmail($value)) === false) {
+                        continue;
+                    }
 
                     $result->add($entity);
                 }
@@ -74,29 +75,36 @@ class EntityFinder
 
         $queryItem = $this->formatPhone($queryItem);
 
-        if (Str::startsWith($queryItem, '8')) return Str::substr($queryItem, 1);
-        if (Str::startsWith($queryItem, '+7')) return Str::substr($queryItem, 2);
-        if (Str::startsWith($queryItem, '7')) return Str::substr($queryItem, 1);
+        if (Str::startsWith($queryItem, '8')) {
+            return Str::substr($queryItem, 1);
+        }
+        if (Str::startsWith($queryItem, '+7')) {
+            return Str::substr($queryItem, 2);
+        }
+        if (Str::startsWith($queryItem, '7')) {
+            return Str::substr($queryItem, 1);
+        }
 
         return $queryItem;
     }
 
     private function formatPhone(?string $phone): ?string
     {
-        if (is_null($phone)) return null;
+        if (is_null($phone)) {
+            return null;
+        }
 
         $phone = Str::of($phone)->replaceMatches('/[^0-9]++/', '');
 
         if ($phone->startsWith('8') || $phone->startsWith('7')) {
-            return '+7' . $phone->substr(1);
+            return '+7'.$phone->substr(1);
         }
 
-        return (string)$phone;
+        return (string) $phone;
     }
 
     protected function formatEmail(?string $query): ?string
     {
         return $query;
     }
-
 }

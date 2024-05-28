@@ -10,6 +10,7 @@ class DateHelper
     public static function format(Carbon $value, string $mod): string
     {
         $dfMod = substr($mod, 3, -1);
+
         return self::transliteMonth($value->format($dfMod));
     }
 
@@ -41,8 +42,9 @@ class DateHelper
             'сентября',
             'октября',
             'ноября',
-            'декабря'
+            'декабря',
         ];
+
         return Str::replace($from, $to, $string);
     }
 }

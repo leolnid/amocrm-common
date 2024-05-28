@@ -14,16 +14,15 @@ class Finder
     /**
      * @throws Throwable
      */
-    public function __construct(AmoCRMApiClient $service = null)
+    public function __construct(?AmoCRMApiClient $service = null)
     {
         $this->service = $service ?? Credentials::getApiClient();
     }
 
-
     /**
      * @throws Throwable
      */
-    public static function make(AmoCRMApiClient $service = null): static
+    public static function make(?AmoCRMApiClient $service = null): static
     {
         return new static($service);
     }

@@ -13,18 +13,26 @@ class FormatToJson
     {
         $response = $next($request);
 
-        if (!($response instanceof JsonResponse)) return $response;
+        if (! ($response instanceof JsonResponse)) {
+            return $response;
+        }
 
         $data = $response->getData(true);
-        if (is_string($data)) $data = ['data' => $data];
+        if (is_string($data)) {
+            $data = ['data' => $data];
+        }
         $content = Arr::get($data, 'data', Arr::except($data, ['success', 'time']));
-        if (is_string($content)) $content = ['message' => $content];
-        if (!is_array($content)) $content = ['_warning' => 'Unsupported content type was returned', 'value' => $content];
+        if (is_string($content)) {
+            $content = ['message' => $content];
+        }
+        if (! is_array($content)) {
+            $content = ['_warning' => 'Unsupported content type was returned', 'value' => $content];
+        }
 
         return $response->setData([
             'success' => Arr::get($data, 'success', $response->isSuccessful()),
             'data' => $content,
-            'time' => microtime(true) - LARAVEL_START
+            'time' => microtime(true) - LARAVEL_START,
         ]);
     }
 }

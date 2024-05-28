@@ -19,7 +19,7 @@ class AuthCommand extends Command
             Credentials::getAndSaveToken($code, $this->argument('domain'));
             $this->info('Успешно получили и сохранили токен');
         } catch (Throwable $e) {
-            $this->error('Произошла ошибка при получении токена: ' . $e->getMessage());
+            $this->error('Произошла ошибка при получении токена: '.$e->getMessage());
         }
     }
 }

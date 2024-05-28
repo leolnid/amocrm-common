@@ -37,23 +37,23 @@ class MainProvider extends ServiceProvider
         Event::listen(DeploymentSuccessEvent::class, LogDeploymentListener::class);
 
         if ($this->app->runningInConsole()) {
-            $this->publishes([__DIR__ . '/../../config/amocrm/common.php' => config_path('amocrm/common.php')]);
-            $this->loadMigrationsFrom([__DIR__ . '/../../database/migrations']);
+            $this->publishes([__DIR__.'/../../config/amocrm/common.php' => config_path('amocrm/common.php')]);
+            $this->loadMigrationsFrom([__DIR__.'/../../database/migrations']);
 
             $console = new Kernel();
             $console->commands($this);
-            $this->callAfterResolving(Schedule::class, fn(Schedule $schedule) => $console->schedule($schedule));
+            $this->callAfterResolving(Schedule::class, fn (Schedule $schedule) => $console->schedule($schedule));
         }
 
-        $this->loadRoutesFrom(__DIR__ . '/../../routes/main.php');
-        $this->loadViewsFrom(__DIR__ . '/../../resources/views', 'leolnid.common');
+        $this->loadRoutesFrom(__DIR__.'/../../routes/main.php');
+        $this->loadViewsFrom(__DIR__.'/../../resources/views', 'leolnid.common');
         $this->registerMiddlewares();
 
         LogViewer::auth(function ($request) {
             return $request->user() && in_array($request->user()->email, [
-                    'john@example.com',
-                    'leonid.dyukov@gmail.com',
-                ]);
+                'john@example.com',
+                'leonid.dyukov@gmail.com',
+            ]);
         });
     }
 
@@ -73,7 +73,7 @@ class MainProvider extends ServiceProvider
 
     public function register(): void
     {
-        $this->callAfterResolving(Health::class, fn(Health $health) => $health->checks($this->getChecks()));
+        $this->callAfterResolving(Health::class, fn (Health $health) => $health->checks($this->getChecks()));
     }
 
     protected function getChecks(): array

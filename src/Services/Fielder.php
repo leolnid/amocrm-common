@@ -51,31 +51,33 @@ class Fielder
             return false;
         }
         $collection->add($cf);
+
         return true;
     }
 
     /**
-     * @param  BaseApiModel|null  $entity
      * @return array|bool|float|int|object|string|null
+     *
      * @deprecated
      */
     public static function getPhone(?BaseApiModel $entity)
     {
-        if (!$entity) {
+        if (! $entity) {
             return null;
         }
         /** @var CompanyModel|ContactModel|LeadModel $entity */
         $customFields = $entity->getCustomFieldsValues();
-        if (!$customFields) {
+        if (! $customFields) {
             return null;
         }
         $field = $customFields->getBy('fieldCode', 'PHONE');
+
         return self::getFromField($field);
     }
 
     public static function getFromField(?BaseCustomFieldValuesModel $field, $isEnum = false)
     {
-        if (!$field) {
+        if (! $field) {
             return null;
         }
         $fieldValue = $field->getValues()->first();
@@ -86,12 +88,13 @@ class Fielder
         if ($field instanceof NumericCustomFieldValuesModel) {
             return +$value;
         }
+
         return $value;
     }
 
     private static function getValue(?BaseCustomFieldValuesModel $cf)
     {
-        if (!$cf) {
+        if (! $cf) {
             return null;
         }
         $values = $cf->getValues();
@@ -102,15 +105,17 @@ class Fielder
         if ($cf instanceof NumericCustomFieldValuesModel) {
             return +$value;
         }
+
         return $value;
     }
 
     public static function getFromEntity(?BaseApiModel $entity, int $fieldId, bool $isEnum = false)
     {
         //Проверить наличие коллекции у энтитити??
-        if (!$entity) {
+        if (! $entity) {
             return null;
         }
+
         /** @var CompanyModel|ContactModel|LeadModel $entity */
         return Fielder::getFromCollection($entity->getCustomFieldsValues(), $fieldId, $isEnum);
     }
@@ -120,13 +125,14 @@ class Fielder
         int $fieldId,
         bool $isEnum = false
     ) {
-        if (!$collection) {
+        if (! $collection) {
             return null;
         }
         $filed = $collection->getBy('fieldId', $fieldId);
-        if (!$filed) {
+        if (! $filed) {
             return null;
         }
+
         return Fielder::getFromField($filed, $isEnum);
     }
 
@@ -154,10 +160,11 @@ class Fielder
     {
         /** @var CompanyModel|ContactModel|LeadModel $entity */
         $cfCollection = $entity->getCustomFieldsValues();
-        if (!$cfCollection) {
+        if (! $cfCollection) {
             return null;
         }
         $cf = $cfCollection->getBy('fieldId', $fieldId);
+
         return Fielder::getValue($cf);
     }
 
@@ -197,14 +204,12 @@ class Fielder
     }
 
     /**
-     * @param  array  $phones
      * @param  ContactModel|CompanyModel|null  $entity
-     * @return MultitextCustomFieldValuesModel
      */
     public static function makePhoneField(array $phones, ?BaseApiModel $entity = null): MultitextCustomFieldValuesModel
     {
         //TODO Менять 8 в начале на 7 если номер российский
-        $phones = collect($phones)->map(fn($phone) => (string) Str::of($phone)->replaceMatches('/[^0-9]++/', ''));
+        $phones = collect($phones)->map(fn ($phone) => (string) Str::of($phone)->replaceMatches('/[^0-9]++/', ''));
         if ($entity) {
             $phones = $phones->merge(Fielder::getPhones($entity))->unique();
         }
@@ -226,11 +231,11 @@ class Fielder
     public static function getPhones(BaseApiModel $contact): ?Collection
     {
         $cf = $contact->getCustomFieldsValues();
-        if (!$cf) {
+        if (! $cf) {
             return null;
         }
         $phoneField = $cf->getBy('fieldCode', 'PHONE');
-        if (!$phoneField) {
+        if (! $phoneField) {
             return null;
         }
         $values = $phoneField->getValues();
@@ -239,6 +244,7 @@ class Fielder
         foreach ($values as $value) {
             $phones->add((string) Str::of($value->getValue())->replaceMatches('/[^0-9]++/', ''));
         }
+
         return $phones;
     }
 
@@ -262,11 +268,11 @@ class Fielder
     public static function getEmails($contact): ?Collection
     {
         $cf = $contact->getCustomFieldsValues();
-        if (!$cf) {
+        if (! $cf) {
             return null;
         }
         $phoneField = $cf->getBy('fieldCode', 'EMAIL');
-        if (!$phoneField) {
+        if (! $phoneField) {
             return null;
         }
         $values = $phoneField->getValues();
@@ -275,8 +281,7 @@ class Fielder
         foreach ($values as $value) {
             $emails->add($value->getValue());
         }
+
         return $emails;
     }
-
 }
-

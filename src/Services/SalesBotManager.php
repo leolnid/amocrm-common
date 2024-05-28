@@ -16,7 +16,7 @@ class SalesBotManager
     /**
      * @throws Throwable
      */
-    public function __construct(AmoCRMApiClient $client = null)
+    public function __construct(?AmoCRMApiClient $client = null)
     {
         $this->client = $client ?? Credentials::getApiClient();
     }
@@ -33,7 +33,7 @@ class SalesBotManager
         }
 
         return collect(Arr::get($result, '_embedded.salesbots'))
-            ->map(fn($arr) => [
+            ->map(fn ($arr) => [
                 'id' => Arr::get($arr, 'id'),
                 'name' => Arr::get($arr, 'name'),
             ])
@@ -46,7 +46,7 @@ class SalesBotManager
     public function run(int $botId, int $leadId): void
     {
         try {
-            $this->client->getRequest()->post("api/v2/salesbot/run", [
+            $this->client->getRequest()->post('api/v2/salesbot/run', [
                 [
                     'bot_id' => $botId,
                     'entity_id' => $leadId,

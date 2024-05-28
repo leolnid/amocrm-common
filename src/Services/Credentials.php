@@ -21,7 +21,7 @@ class Credentials
      * @throws AmoCRMoAuthApiException
      * @throws Throwable
      */
-    public static function getAndSaveToken(string $code, string $domain = null): void
+    public static function getAndSaveToken(string $code, ?string $domain = null): void
     {
         $apiClient = self::makeApiClient($domain);
         $token = $apiClient->getOAuthClient()->getAccessTokenByCode($code);
@@ -31,13 +31,13 @@ class Credentials
     /**
      * @throws Throwable
      */
-    private static function makeApiClient(string $domain = null): AmoCRMApiClient
+    private static function makeApiClient(?string $domain = null): AmoCRMApiClient
     {
         $configPath = self::getConfigPath($domain);
 
-        foreach (['client_id', 'client_secret', 'redirect_url', 'domain'] as $param)
+        foreach (['client_id', 'client_secret', 'redirect_url', 'domain'] as $param) {
             throw_if(is_null(config("$configPath.$param")), "Значение конфига для работы с amoCRM не было инициализировано: $param");
-
+        }
 
         $apiClient = new AmoCRMApiClient(
             config("$configPath.client_id"),
@@ -58,20 +58,24 @@ class Credentials
     /**
      * @throws Throwable
      */
-    public static function getApiClient(string $domain = null): AmoCRMApiClient
+    public static function getApiClient(?string $domain = null): AmoCRMApiClient
     {
-        if (!is_null($domain)) $domain = Str::replace('.', '_', $domain);
+        if (! is_null($domain)) {
+            $domain = Str::replace('.', '_', $domain);
+        }
         $configPath = self::getConfigPath($domain);
 
         $apiClient = self::makeApiClient($domain);
 
-        if (!is_null(config("$configPath.token"))) {
+        if (! is_null(config("$configPath.token"))) {
             $apiClient->setAccessToken(new LongLivedAccessToken(config("$configPath.token")));
+
             return $apiClient;
         }
 
         $apiClient->setAccessToken(CredentialsToken::get());
-        $apiClient->onAccessTokenRefresh(fn(AccessTokenInterface $accessToken) => CredentialsToken::save($accessToken, $domain));
+        $apiClient->onAccessTokenRefresh(fn (AccessTokenInterface $accessToken) => CredentialsToken::save($accessToken, $domain));
+
         return $apiClient;
     }
 }

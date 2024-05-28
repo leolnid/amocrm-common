@@ -10,6 +10,6 @@ return [
         'domain' => '____.amocrm.ru',
 
         'token' => '',
-        'expires' => '07.03.2029'
-    ]
+        'expires' => '07.03.2029',
+    ],
 ];

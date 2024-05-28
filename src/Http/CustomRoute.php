@@ -15,10 +15,13 @@ use Throwable;
 class CustomRoute
 {
     protected string $route;
+
     protected string|Closure $callable;
 
     protected string $method = RequestAlias::METHOD_POST;
+
     protected null|string|Closure $cast = null;
+
     protected bool $sync = false;
 
     protected function __construct(string $route, string|Closure $callable)
@@ -35,12 +38,14 @@ class CustomRoute
     public function method(string $method): CustomRoute
     {
         $this->method = $method;
+
         return $this;
     }
 
     public function cast(string|Closure|null $cast): CustomRoute
     {
         $this->cast = $cast;
+
         return $this;
     }
 
@@ -54,6 +59,7 @@ class CustomRoute
                     $data = self::castRequest($this->cast, $request);
                 } catch (Throwable $e) {
                     report($e);
+
                     return ['message' => 'Не смогли преобразовать входные данные', 'error' => $e->getMessage()];
                 }
 
@@ -68,9 +74,11 @@ class CustomRoute
                     }
                 };
 
-
-                if ($this->sync) dispatch_sync($callable);
-                else dispatch($callable);
+                if ($this->sync) {
+                    dispatch_sync($callable);
+                } else {
+                    dispatch($callable);
+                }
 
                 return response()->json('Поставили вебхук в очередь на обработку.');
             })
@@ -79,14 +87,17 @@ class CustomRoute
 
     public static function castRequest($cast, Request $request)
     {
-        if (is_null($cast))
+        if (is_null($cast)) {
             return $request->all();
+        }
 
-        if (is_callable($cast))
+        if (is_callable($cast)) {
             return call_user_func($cast, $request);
+        }
 
-        if (is_callable([$cast, 'factory']))
+        if (is_callable([$cast, 'factory'])) {
             return call_user_func([$cast, 'factory'], $request);
+        }
 
         return new $cast($request);
     }
