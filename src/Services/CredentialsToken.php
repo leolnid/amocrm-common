@@ -5,6 +5,7 @@ namespace Leolnid\Common\Services;
 use Exception;
 use Illuminate\Support\Facades\File;
 use League\OAuth2\Client\Token\AccessToken;
+use League\OAuth2\Client\Token\AccessTokenInterface;
 
 class CredentialsToken
 {
@@ -26,7 +27,7 @@ class CredentialsToken
         return storage_path('app/token.json');
     }
 
-    public static function save(AccessToken $token, string $domain = null): void
+    public static function save(AccessTokenInterface $token, string $domain = null): void
     {
         $array = [
             'access_token' => $token->getToken(),

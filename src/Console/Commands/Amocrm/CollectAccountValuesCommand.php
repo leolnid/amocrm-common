@@ -27,7 +27,6 @@ class CollectAccountValuesCommand extends Command
 
     public function handle(): void
     {
-
         try {
             $this->info('Начали процесс получения данных');
 
@@ -54,6 +53,7 @@ class CollectAccountValuesCommand extends Command
             }
             $this->info('Успешно получили и сохранили данные аккаунта: ' . data_get($result, 'account.name'));
         } catch (Throwable $e) {
+            dd($e);
             $this->error('Произошла ошибка при получении данных аккаунта: ' . $e->getMessage());
         }
     }
