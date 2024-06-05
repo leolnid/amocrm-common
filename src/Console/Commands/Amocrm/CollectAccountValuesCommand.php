@@ -27,7 +27,6 @@ class CollectAccountValuesCommand extends Command
 
     public function handle(): void
     {
-
         try {
             $this->info('Начали процесс получения данных');
 
@@ -46,15 +45,16 @@ class CollectAccountValuesCommand extends Command
 
             $export = $this->toPhpFile($result);
 
-            if (is_null($this->argument('domain'))) {
-                File::put(base_path('config/amocrm/values.php'), "<?php\n\n\nreturn $export;");
-            } else {
+            if (is_null($this->argument('domain')))
+                File::put(base_path("config/amocrm/values.php"), "<?php\n\n\nreturn $export;");
+            else {
                 $domain = Str::replace('.', '_', $this->argument('domain'));
                 File::put(base_path("config/amocrm/$domain/values.php"), "<?php\n\n\nreturn $export;");
             }
-            $this->info('Успешно получили и сохранили данные аккаунта: '.data_get($result, 'account.name'));
+            $this->info('Успешно получили и сохранили данные аккаунта: ' . data_get($result, 'account.name'));
         } catch (Throwable $e) {
-            $this->error('Произошла ошибка при получении данных аккаунта: '.$e->getMessage());
+            dd($e);
+            $this->error('Произошла ошибка при получении данных аккаунта: ' . $e->getMessage());
         }
     }
 
@@ -71,7 +71,7 @@ class CollectAccountValuesCommand extends Command
         return [
             ...Arr::except($account->toArray(), ['task_types', 'bots']),
             'task_types' => collect($account->getTaskTypes()->toArray())
-                ->mapWithKeys(fn ($el) => [$this->slug(data_get($el, 'code') ?: data_get($el, 'name')) => $el])
+                ->mapWithKeys(fn($el) => [$this->slug(data_get($el, 'code') ?: data_get($el, 'name')) => $el])
                 ->toArray(),
         ];
     }
@@ -104,11 +104,10 @@ class CollectAccountValuesCommand extends Command
                 'type' => $value->getType(),
             ];
 
-            if (method_exists($value, 'getEnums') && $value->getEnums() instanceof CustomFieldEnumsCollection) {
+            if (method_exists($value, 'getEnums') && $value->getEnums() instanceof CustomFieldEnumsCollection)
                 $resultValue['options'] = collect($value->getEnums()->getIterator())
-                    ->mapWithKeys(fn (EnumModel $model) => [Str::slug($model->getValue(), '_') => $model->getId()])
+                    ->mapWithKeys(fn(EnumModel $model) => [Str::slug($model->getValue(), '_') => $model->getId()])
                     ->toArray();
-            }
 
             $result[$slug] = $resultValue;
         }
@@ -122,7 +121,6 @@ class CollectAccountValuesCommand extends Command
             return $this->client()->customFields($entity)->get();
         } catch (Throwable $e) {
             $this->warn("Ошибка при получении полей $entity - {$e->getMessage()}");
-
             return new CustomFieldsCollection;
         }
     }
@@ -139,7 +137,7 @@ class CollectAccountValuesCommand extends Command
         }
 
         return collect(Arr::get($result, '_embedded.salesbots'))
-            ->map(fn ($arr) => [
+            ->map(fn($arr) => [
                 'id' => Arr::get($arr, 'id'),
                 'name' => Arr::get($arr, 'name'),
             ])
@@ -198,7 +196,7 @@ class CollectAccountValuesCommand extends Command
                 'is_archive' => $pipeline->getIsArchive(),
                 'is_main' => $pipeline->getIsMain(),
 
-                'statuses' => $statuses,
+                'statuses' => $statuses
             ];
         }
 
@@ -215,7 +213,6 @@ class CollectAccountValuesCommand extends Command
             "/([ ]*)(\'[^\']+\') => ([\[\'])/" => '$1$2 => $3',
         ];
         $export = preg_replace(array_keys($patterns), array_values($patterns), $export);
-
         return $export;
     }
 }
