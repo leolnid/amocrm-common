@@ -23,7 +23,7 @@ class Handler extends ExceptionHandler
     {
         $this->reportable(function (Throwable|Exception $e) {
             if (App::isLocal()) {
-                dd($e);
+//                dd($e);
             }
             if (App::isProduction()) {
                 logger()->error(
