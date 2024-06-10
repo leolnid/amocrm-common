@@ -63,12 +63,12 @@ class Handler extends ExceptionHandler
         });
     }
 
-    protected function exceptionContext(Throwable $e): array
+    public function exceptionContext(Throwable $e): array
     {
         return ['exception' => $this->convertExceptionToArray($e)];
     }
 
-    protected function convertExceptionToArray(Throwable $e): array
+    public function convertExceptionToArray(Throwable $e): array
     {
         return [
             'message' => $e->getMessage(),
@@ -98,7 +98,7 @@ class Handler extends ExceptionHandler
         return $result;
     }
 
-    protected function addFlareContext(string $key, array $context): void
+    public function addFlareContext(string $key, array $context): void
     {
         try {
             Flare::context($key, $context);
@@ -107,7 +107,7 @@ class Handler extends ExceptionHandler
         }
     }
 
-    protected function addSentryBreadcrumbs(Throwable $e): void
+    public function addSentryBreadcrumbs(Throwable $e): void
     {
         if ($e instanceof AmoCRMApiException) {
             $context = Arr::except($e->getLastRequestInfo() ?? [], ['curl_call', 'jquery_call']);
