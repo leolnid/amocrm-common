@@ -21,14 +21,14 @@ class Handler extends ExceptionHandler
     public function register(): void
     {
         $this->reportable(function (Throwable|Exception $e) {
-            if (App::isLocal()) dump($e);
-            if (App::isProduction()) logger()->error(
-                $e->getMessage(),
-                array_merge(
-                    $this->exceptionContext($e),
-                    $this->context(),
-                )
-            );
+//            if (App::isLocal()) dump($e);
+//            if (App::isProduction()) logger()->error(
+//                $e->getMessage(),
+//                array_merge(
+//                    $this->exceptionContext($e),
+//                    $this->context(),
+//                )
+//            );
         });
 
         $this->reportable(function (Throwable $e) {
