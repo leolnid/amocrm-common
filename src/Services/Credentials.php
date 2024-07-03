@@ -12,6 +12,8 @@ use AmoCRM\Client\AmoCRMApiClient;
 use AmoCRM\Client\LongLivedAccessToken;
 use AmoCRM\Exceptions\AmoCRMoAuthApiException;
 use Illuminate\Support\Str;
+use League\OAuth2\Client\Token\AccessTokenInterface;
+use RuntimeException;
 use Throwable;
 
 class Credentials
@@ -22,7 +24,7 @@ class Credentials
      */
     public static function getAndSaveToken(string $code, string $domain = null): void
     {
-        $apiClient = self::makeApiClient($domain);
+        $apiClient = self::makeRefreshableApiClient($domain);
         $token = $apiClient->getOAuthClient()->getAccessTokenByCode($code);
         CredentialsToken::save($token, $domain);
     }
@@ -30,16 +32,24 @@ class Credentials
     /**
      * @throws Throwable
      */
-    private static function makeApiClient(string $domain = null): AmoCRMApiClient
+    private static function makeRefreshableApiClient(string $domain = null): AmoCRMApiClient
     {
         $configPath = self::getConfigPath($domain);
-        throw_if(empty(config("$configPath.domain")), "Значение конфига для работы с amoCRM не было инициализировано");
 
-        return (new AmoCRMApiClient(
-            config("$configPath.client_id"),
-            config("$configPath.client_secret"),
-            config("$configPath.redirect_url")
-        ))->setAccountBaseDomain(config("$configPath.domain"));
+        foreach (['client_id', 'client_secret', 'redirect_url', 'domain'] as $param)
+            throw_if(is_null(config("$configPath.$param")), "Значение конфига для работы с amoCRM не было инициализировано: $param");
+
+
+        $clientId = config("$configPath.client_id");
+        $clientSecret = config("$configPath.client_secret");
+        $redirectUri = config("$configPath.redirect_url");
+
+        if (empty($clientId) || empty($clientSecret) || empty($redirectUri)) {
+            throw new RuntimeException("Значение конфига для работы с amoCRM не было инициализировано");
+        }
+
+        return (new AmoCRMApiClient($clientId, $clientSecret, $redirectUri))
+            ->setAccountBaseDomain(config("$configPath.domain"));
     }
 
     protected static function getConfigPath(array|string|null $domain): string
@@ -55,15 +65,14 @@ class Credentials
         if (!is_null($domain)) $domain = Str::replace('.', '_', $domain);
         $configPath = self::getConfigPath($domain);
 
-        $apiClient = self::makeApiClient($domain);
-
         if (!is_null(config("$configPath.token"))) {
-            $apiClient->setAccessToken(new LongLivedAccessToken(config("$configPath.token")));
-            return $apiClient;
+            return (new AmoCRMApiClient())
+                ->setAccountBaseDomain(config("$configPath.domain"))
+                ->setAccessToken(new LongLivedAccessToken(config("$configPath.token")));
         }
 
-        $apiClient->setAccessToken(CredentialsToken::get());
-        $apiClient->onAccessTokenRefresh(fn($accessToken) => CredentialsToken::save($accessToken, $domain));
-        return $apiClient;
+        return self::makeRefreshableApiClient($domain)
+            ->setAccessToken(CredentialsToken::get())
+            ->onAccessTokenRefresh(fn(AccessTokenInterface $accessToken) => CredentialsToken::save($accessToken, $domain));
     }
 }
