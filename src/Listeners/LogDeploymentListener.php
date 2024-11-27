@@ -2,6 +2,8 @@
 
 namespace Leolnid\Common\Listeners;
 
+use Leolnid\Common\Services\TelegramLogger;
+
 class LogDeploymentListener
 {
     public function __construct()
@@ -10,7 +12,7 @@ class LogDeploymentListener
 
     public function handle($event): void
     {
-        \App\Services\TelegramLogger::info('Завершили обновление приложения');
+        TelegramLogger::info('Завершили обновление приложения');
         logger()->notice('Завершили обновление приложения');
     }
 }
