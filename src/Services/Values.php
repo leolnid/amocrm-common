@@ -55,7 +55,7 @@ class Values
      * @throws AmoCRMMissedTokenException
      * @throws Throwable
      */
-    protected function getCurrentAccount(): array
+    public function getCurrentAccount(): array
     {
         $account = $this->client->account()->getCurrent(['task_types']);
 
@@ -72,7 +72,7 @@ class Values
         return Str::slug(strtolower($name), '_');
     }
 
-    protected function getCustomFieldsAsArray(string $entity): array
+    public function getCustomFieldsAsArray(string $entity): array
     {
         $result = [];
 
@@ -98,7 +98,7 @@ class Values
         return $result;
     }
 
-    protected function getCustomFields(string $entity): CustomFieldsCollection
+    public function getCustomFields(string $entity): CustomFieldsCollection
     {
         try {
             return $this->client->customFields($entity)->get();
@@ -108,7 +108,7 @@ class Values
         }
     }
 
-    protected function getBots()
+    public function getBots()
     {
 
         try {
@@ -133,7 +133,7 @@ class Values
      * @throws AmoCRMApiException
      * @throws AmoCRMMissedTokenException
      */
-    private function getUsers(): array
+    public function getUsers(): array
     {
         $result = [];
 
@@ -157,7 +157,7 @@ class Values
      * @throws AmoCRMoAuthApiException
      * @throws AmoCRMMissedTokenException
      */
-    private function getPipelines(): array
+    public function getPipelines(): array
     {
         $result = [];
 
