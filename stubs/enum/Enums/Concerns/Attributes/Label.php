@@ -1,0 +1,11 @@
+<?php
+
+namespace App\Enums\Concerns\Attributes;
+
+use Attribute;
+
+#[Attribute(Attribute::TARGET_CLASS_CONSTANT)]
+class Label
+{
+    public function __construct(public string $label) {}
+}
