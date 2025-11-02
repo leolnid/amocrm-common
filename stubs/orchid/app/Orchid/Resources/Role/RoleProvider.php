@@ -6,6 +6,7 @@ namespace App\Orchid\Resources\Role;
 
 use App\Orchid\Resources\Role\Screens\RoleEditScreen;
 use App\Orchid\Resources\Role\Screens\RoleListScreen;
+use Illuminate\Routing\Router;
 use Orchid\Platform\Dashboard;
 use Orchid\Platform\OrchidServiceProvider;
 use Illuminate\Support\Facades\Route;
@@ -30,11 +31,9 @@ class RoleProvider extends OrchidServiceProvider
         // Выполните действия при инициализации Orchid для ресурса Role
     }
 
-    public function routes(): void
+    public function routes(Router $router): void
     {
-        parent::routes();
-        // Platform > System > Roles > Role
-        Route::screen('roles/{role}/edit', RoleEditScreen::class)
+        $router->screen('roles/{role}/edit', RoleEditScreen::class)
             ->name('platform.systems.roles.edit')
             ->breadcrumbs(fn(Trail $trail, $role) => $trail
                 ->parent('platform.systems.roles')

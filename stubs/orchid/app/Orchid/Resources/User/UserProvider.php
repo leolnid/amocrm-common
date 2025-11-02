@@ -7,11 +7,11 @@ namespace App\Orchid\Resources\User;
 use App\Orchid\Resources\User\Screens\UserEditScreen;
 use App\Orchid\Resources\User\Screens\UserListScreen;
 use App\Orchid\Resources\User\Screens\UserProfileScreen;
+use Illuminate\Routing\Router;
 use Orchid\Platform\Dashboard;
-use Orchid\Platform\OrchidServiceProvider;
-use Illuminate\Support\Facades\Route;
-use Tabuna\Breadcrumbs\Trail;
 use Orchid\Platform\ItemPermission;
+use Orchid\Platform\OrchidServiceProvider;
+use Tabuna\Breadcrumbs\Trail;
 
 /**
  * Провайдер для ресурса User.
@@ -19,44 +19,31 @@ use Orchid\Platform\ItemPermission;
  */
 class UserProvider extends OrchidServiceProvider
 {
-    public function register(): void
+    public function routes(Router $router): void
     {
-        parent::register();
-        // Зарегистрируйте биндинги или события, связанные с User
-    }
-
-    public function boot(Dashboard $dashboard): void
-    {
-        parent::boot($dashboard);
-        // Выполните действия при инициализации Orchid для ресурса User
-    }
-
-    public function routes(): void
-    {
-        parent::routes();
         // Platform > Profile
-        Route::screen('profile', UserProfileScreen::class)
+        $router->screen('profile', UserProfileScreen::class)
             ->name('platform.profile')
             ->breadcrumbs(fn(Trail $trail) => $trail
                 ->parent('platform.index')
                 ->push(__('Profile'), route('platform.profile')));
 
         // Platform > System > Users > User
-        Route::screen('users/{user}/edit', UserEditScreen::class)
+        $router->screen('users/{user}/edit', UserEditScreen::class)
             ->name('platform.systems.users.edit')
             ->breadcrumbs(fn(Trail $trail, $user) => $trail
                 ->parent('platform.systems.users')
                 ->push($user->name, route('platform.systems.users.edit', $user)));
 
         // Platform > System > Users > Create
-        Route::screen('users/create', UserEditScreen::class)
+        $router->screen('users/create', UserEditScreen::class)
             ->name('platform.systems.users.create')
             ->breadcrumbs(fn(Trail $trail) => $trail
                 ->parent('platform.systems.users')
                 ->push(__('Create'), route('platform.systems.users.create')));
 
         // Platform > System > Users
-        Route::screen('users', UserListScreen::class)
+        $router->screen('users', UserListScreen::class)
             ->name('platform.systems.users')
             ->breadcrumbs(fn(Trail $trail) => $trail
                 ->parent('platform.index')

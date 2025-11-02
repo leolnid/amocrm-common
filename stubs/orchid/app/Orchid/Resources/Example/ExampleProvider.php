@@ -6,6 +6,7 @@ namespace App\Orchid\Resources\Example;
 
 use App\Orchid\Resources\Example\Screens\ExampleEditScreen;
 use App\Orchid\Resources\Example\Screens\ExampleListScreen;
+use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
 use Orchid\Platform\Dashboard;
 use Orchid\Platform\ItemPermission;
@@ -24,11 +25,9 @@ class ExampleProvider extends OrchidServiceProvider
         parent::boot($dashboard);
     }
 
-    public function routes(): void
+    public function routes(Router $router): void
     {
-        parent::routes();
-
-        Route::prefix('examples')->group(function () {
+        $router->prefix('examples')->group(function () {
             Route::screen('create', ExampleEditScreen::class)
                 ->name('platform.examples.create')
                 ->breadcrumbs(fn(Trail $trail) => $trail

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Orchid;
 
 use App\Models\User;
+use Illuminate\Support\Str;
 use Orchid\Platform\Dashboard;
 use Orchid\Platform\ItemPermission;
 use Orchid\Platform\OrchidServiceProvider;
@@ -14,7 +15,7 @@ use RecursiveIteratorIterator;
 
 /**
  * Шаблон PlatformProvider для Orchid
- * 
+ *
  * Добавьте пункты меню в метод menu()
  * Настройте права доступа в методе permissions()
  */
@@ -40,11 +41,9 @@ class PlatformProvider extends OrchidServiceProvider
     {
         // Замена модели User Orchid на вашу модель User
         \Orchid\Support\Facades\Dashboard::useModel(
-            \Orchid\Platform\Models\User::class, 
+            \Orchid\Platform\Models\User::class,
             User::class
         );
-
-        parent::boot($dashboard);
 
         // Автоматический вызов boot() у провайдеров ресурсов
         foreach ($this->resourceProviders as $provider) {
@@ -52,6 +51,8 @@ class PlatformProvider extends OrchidServiceProvider
                 $provider->boot($dashboard);
             }
         }
+
+        parent::boot($dashboard);
     }
 
     public function menu(): array
@@ -100,7 +101,7 @@ class PlatformProvider extends OrchidServiceProvider
     }
 
     /**
-     * Поиск и инстанцирование провайдеров ресурсов из app/Orchid/Resources/**/**/*Provider.php
+     * Поиск и инстанцирование провайдеров ресурсов из app/Orchid/Resources///Provider.php
      * Провайдеры должны наследоваться от OrchidServiceProvider.
      *
      * @return array<int, OrchidServiceProvider>
@@ -127,14 +128,18 @@ class PlatformProvider extends OrchidServiceProvider
             }
 
             // Преобразуем путь файла в полное имя класса под пространством имен App\
-            $fullPath = $file->getPathname();
-            $relative = str_replace([base_path('app') . DIRECTORY_SEPARATOR, '.php'], ['', ''], $fullPath);
-            $class = 'App\\' . str_replace(DIRECTORY_SEPARATOR, '\\', $relative);
+            $class = Str::of($file->getPathname())
+                ->replace('\\', DIRECTORY_SEPARATOR)
+                ->replace('/', DIRECTORY_SEPARATOR)
+                ->remove(base_path('app') . DIRECTORY_SEPARATOR)
+                ->prepend('App' . DIRECTORY_SEPARATOR)
+                ->replace(DIRECTORY_SEPARATOR, '\\')
+                ->remove('.php')
+                ->toString();
 
             if (class_exists($class)) {
-                $instance = app($class);
-                if ($instance instanceof OrchidServiceProvider) {
-                    $providers[] = $instance;
+                if (is_subclass_of($class, OrchidServiceProvider::class)) {
+                    $providers[] = new $class($this->app);
                 }
             }
         }
