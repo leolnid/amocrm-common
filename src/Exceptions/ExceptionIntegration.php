@@ -29,10 +29,24 @@ class ExceptionIntegration
 
         $exceptions->reportable(function (Throwable $e) {
             try {
-                self::addSentryBreadcrumbs($e);
+                try {
+                    self::addSentryBreadcrumbs($e);
+                } catch (Throwable) {
+                    // Breadcrumbs не должны блокировать отправку в Sentry
+                }
                 captureException($e);
-            } catch (Throwable) {
-
+            } catch (Throwable $sentryFailure) {
+                // Если Sentry не смог принять (сеть, DSN, SDK) — пишем в emergency, чтобы не терять след
+                try {
+                    \Log::channel('emergency')->emergency('Sentry capture failed', [
+                        'sentry_failure' => $sentryFailure->getMessage(),
+                        'sentry_failure_class' => get_class($sentryFailure),
+                        'original_exception' => $e->getMessage(),
+                        'original_class' => get_class($e),
+                    ]);
+                } catch (Throwable) {
+                    // emergency-лог недоступен — ничего не делаем
+                }
             }
         });
 
