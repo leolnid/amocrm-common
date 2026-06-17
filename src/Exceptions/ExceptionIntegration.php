@@ -24,7 +24,13 @@ class ExceptionIntegration
     public static function handles(Exceptions $exceptions): void
     {
         $exceptions->reportable(function (Throwable|Exception $e) {
-            if (App::isLocal()) dump($e);
+            try {
+                if (App::isLocal()) {
+                    dump($e);
+                }
+            } catch (Throwable) {
+                // Facade root may be unavailable during early bootstrap failures
+            }
         });
 
         $exceptions->reportable(function (Throwable $e) {
