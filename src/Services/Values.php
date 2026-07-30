@@ -108,24 +108,73 @@ class Values
         }
     }
 
-    public function getBots()
+    public function getBots(): array
     {
+        $bots = $this->getBotsViaV4Api();
+        if ($bots !== []) {
+            return $bots;
+        }
 
+        // Fallback: старый private endpoint (лимит ~100)
         try {
-            $result = $this->client->getRequest()->get('private/ajax/v2/json/helpbot/',
-                ['count' => 100],
-                ['X-Requested-With' => 'XMLHttpRequest']);
-        } catch (Throwable $e) {
+            $result = $this->client->getRequest()->get(
+                'private/ajax/v2/json/helpbot/',
+                ['count' => 500],
+                ['X-Requested-With' => 'XMLHttpRequest']
+            );
+        } catch (Throwable) {
             return [];
         }
 
         return collect(Arr::get($result, '_embedded.salesbots'))
-            ->map(fn($arr) => [
+            ->map(fn ($arr) => [
                 'id' => Arr::get($arr, 'id'),
                 'name' => Arr::get($arr, 'name'),
             ])
             ->values()
             ->toArray();
+    }
+
+    /**
+     * Все salesbot через GET /api/v4/bots (пагинация до 250 на страницу).
+     *
+     * @return list<array{id: mixed, name: mixed}>
+     */
+    protected function getBotsViaV4Api(): array
+    {
+        $bots = [];
+        $page = 1;
+
+        try {
+            do {
+                $result = $this->client->getRequest()->get('api/v4/bots', [
+                    'page' => $page,
+                    'limit' => 250,
+                ]);
+
+                $items = Arr::get($result, '_embedded.items')
+                    ?? Arr::get($result, '_embedded.bots')
+                    ?? [];
+
+                foreach ($items as $item) {
+                    $bots[] = [
+                        'id' => Arr::get($item, 'id'),
+                        'name' => Arr::get($item, 'name'),
+                    ];
+                }
+
+                $pageCount = (int) Arr::get($result, '_page_count', $page);
+                $page++;
+            } while ($page <= $pageCount && $items !== []);
+        } catch (Throwable $e) {
+            logger()->warning('Values: не удалось загрузить bots через api/v4/bots', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return [];
+        }
+
+        return $bots;
     }
 
     /**
@@ -167,22 +216,44 @@ class Values
 
             /** @var StatusModel $status */
             foreach ($pipeline->getStatuses() as $status) {
-                $statuses[$this->slug($status->getName())] = [
+                $statuses[(string) $status->getId()] = [
                     'id' => $status->getId(),
                     'name' => $status->getName(),
                 ];
             }
+
+            // Системные этапы успеха/отказа — в каждой воронке, API иногда не отдаёт в getStatuses()
+            $statuses = $this->ensureSystemStatuses($statuses);
 
             $result[$this->slug($pipeline->getName())] = [
                 'id' => $pipeline->getId(),
                 'name' => $pipeline->getName(),
                 'is_archive' => $pipeline->getIsArchive(),
                 'is_main' => $pipeline->getIsMain(),
-
-                'statuses' => $statuses
+                'statuses' => $statuses,
             ];
         }
 
         return $result;
+    }
+
+    /**
+     * @param  array<string, array{id: int|string, name: string}>  $statuses
+     * @return array<string, array{id: int|string, name: string}>
+     */
+    private function ensureSystemStatuses(array $statuses): array
+    {
+        $system = [
+            '142' => ['id' => 142, 'name' => 'Успешно реализовано'],
+            '143' => ['id' => 143, 'name' => 'Закрыто и не реализовано'],
+        ];
+
+        foreach ($system as $key => $status) {
+            if (! isset($statuses[$key])) {
+                $statuses[$key] = $status;
+            }
+        }
+
+        return $statuses;
     }
 }

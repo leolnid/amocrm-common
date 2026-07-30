@@ -7,7 +7,11 @@ use Leolnid\Common\Events\DeploymentSuccessEvent;
 
 class DeploymentSuccessCommand extends Command
 {
-    protected $signature = 'deployment:success';
+    /** Ansible common-deploy вызывает `deploy:success`. */
+    protected $signature = 'deploy:success';
+
+    /** @var list<string> */
+    protected $aliases = ['deployment:success'];
 
     public function handle(): void
     {
