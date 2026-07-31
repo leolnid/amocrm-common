@@ -6,8 +6,10 @@ use AmoCRM\Client\AmoCRMApiClient;
 use AmoCRM\Collections\CustomFields\CustomFieldEnumsCollection;
 use AmoCRM\Collections\CustomFields\CustomFieldsCollection;
 use AmoCRM\Exceptions\AmoCRMApiException;
+use AmoCRM\Exceptions\AmoCRMApiPageNotAvailableException;
 use AmoCRM\Exceptions\AmoCRMMissedTokenException;
 use AmoCRM\Exceptions\AmoCRMoAuthApiException;
+use AmoCRM\Filters\CustomFieldsFilter;
 use AmoCRM\Helpers\EntityTypesInterface;
 use AmoCRM\Models\CustomFields\CustomFieldModel;
 use AmoCRM\Models\CustomFields\EnumModel;
@@ -79,6 +81,10 @@ class Values
         /** @var CustomFieldModel $value */
         foreach ($this->getCustomFields($entity) as $value) {
             $slug = $this->slug($value->getCode() ?: $value->getName());
+            // Одинаковые имена → один slug; не затираем поля (в т.ч. type=file)
+            if (isset($result[$slug])) {
+                $slug = $slug . '_' . $value->getId();
+            }
 
             $resultValue = [
                 'id' => $value->getId(),
@@ -98,10 +104,33 @@ class Values
         return $result;
     }
 
+    /**
+     * Все CF сущности с пагинацией (API: max 250/стр.; без nextPage теряются поздние поля, напр. type=file).
+     */
     public function getCustomFields(string $entity): CustomFieldsCollection
     {
         try {
-            return $this->client->customFields($entity)->get();
+            $service = $this->client->customFields($entity);
+            $page = $service->get((new CustomFieldsFilter())->setLimit(250)->setPage(1));
+            $result = new CustomFieldsCollection();
+
+            while ($page !== null) {
+                foreach ($page as $field) {
+                    $result->add($field);
+                }
+
+                if ($page->getNextPageLink() === null) {
+                    break;
+                }
+
+                try {
+                    $page = $service->nextPage($page);
+                } catch (AmoCRMApiPageNotAvailableException) {
+                    break;
+                }
+            }
+
+            return $result;
         } catch (Throwable $e) {
             logger()->warning("Ошибка при получении полей $entity - {$e->getMessage()}");
             return new CustomFieldsCollection;
