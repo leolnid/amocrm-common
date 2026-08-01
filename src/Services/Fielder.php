@@ -225,17 +225,25 @@ class Fielder
     public static function makePhoneField(array $phones, ?BaseApiModel $entity = null): MultitextCustomFieldValuesModel
     {
         //TODO Менять 8 в начале на 7 если номер российский
-        $phones = collect($phones)->map(fn($phone) => (string)Str::of($phone)->replaceMatches('/[^0-9]++/', ''));
+        $phones = collect($phones)->map(fn($phone) => (string)Str::of($phone)->replaceMatches('/[^0-9]++/', ''))->filter()->values();
         if ($entity) {
-            $phones = $phones->merge(Fielder::getPhones($entity))->unique();
+            $phones = $phones->merge(Fielder::getPhones($entity) ?? [])->unique()->values();
         }
 
         $values = (new MultitextCustomFieldValueCollection());
+        // amoCRM multitext PHONE требует enum_code (WORK/MOB/…)
+        $enumCodes = ['WORK', 'MOB', 'HOME', 'OTHER', 'WORKDD', 'FAX'];
 
-        foreach ($phones as $phone) {
-            if ($phone) {
-                $values->add((new MultitextCustomFieldValueModel())->setValue($phone));
+        foreach ($phones as $index => $phone) {
+            if (! $phone) {
+                continue;
             }
+            $enumCode = $enumCodes[$index] ?? 'OTHER';
+            $values->add(
+                (new MultitextCustomFieldValueModel())
+                    ->setValue($phone)
+                    ->setEnum($enumCode)
+            );
         }
 
         return (new MultitextCustomFieldValuesModel())->setFieldCode('PHONE')->setValues($values);
