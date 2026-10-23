@@ -22,7 +22,7 @@ class Credentials
      * @throws AmoCRMoAuthApiException
      * @throws Throwable
      */
-    public static function getAndSaveToken(string $code, string $domain = null): void
+    public static function getAndSaveToken(string $code, ?string $domain = null): void
     {
         $apiClient = self::makeRefreshableApiClient($domain);
         $token = $apiClient->getOAuthClient()->getAccessTokenByCode($code);
@@ -32,7 +32,7 @@ class Credentials
     /**
      * @throws Throwable
      */
-    private static function makeRefreshableApiClient(string $domain = null): AmoCRMApiClient
+    private static function makeRefreshableApiClient(?string $domain = null): AmoCRMApiClient
     {
         $configPath = self::getConfigPath($domain);
 
@@ -60,7 +60,7 @@ class Credentials
     /**
      * @throws Throwable
      */
-    public static function getApiClient(string $domain = null): AmoCRMApiClient
+    public static function getApiClient(?string $domain = null): AmoCRMApiClient
     {
         if (!is_null($domain)) $domain = Str::replace('.', '_', $domain);
         $configPath = self::getConfigPath($domain);
