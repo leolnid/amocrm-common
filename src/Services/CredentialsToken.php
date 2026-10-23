@@ -12,7 +12,7 @@ class CredentialsToken
     /**
      * @throws Exception
      */
-    public static function get(string $domain = null): AccessToken
+    public static function get(?string $domain = null): AccessToken
     {
         if (!File::exists(self::getPath($domain)))
             throw new Exception('Авторизационные данные не предоставлены!');
@@ -21,13 +21,13 @@ class CredentialsToken
         return new AccessToken($token);
     }
 
-    protected static function getPath(string $domain = null): string
+    protected static function getPath(?string $domain = null): string
     {
         if (!is_null($domain)) return storage_path("app/tokens/{$domain}.json");
         return storage_path('app/token.json');
     }
 
-    public static function save(AccessTokenInterface $token, string $domain = null): void
+    public static function save(AccessTokenInterface $token, ?string $domain = null): void
     {
         $array = [
             'access_token' => $token->getToken(),
