@@ -9,12 +9,12 @@ use Throwable;
 
 class TelegramLogger
 {
-    public static function debug(string $message, array $context = null)
+    public static function debug(string $message, ?array $context = null)
     {
         return self::log(LogLevel::DEBUG, $message, $context);
     }
 
-    public static function log(string $level, string $message, array $context = null): bool
+    public static function log(string $level, string $message, ?array $context = null): bool
     {
         try {
             Http::createPendingRequest()
@@ -39,17 +39,17 @@ class TelegramLogger
         return true;
     }
 
-    public static function warn(string $message, array $context = null)
+    public static function warn(string $message, ?array $context = null)
     {
         return self::log(LogLevel::WARNING, $message, $context);
     }
 
-    public static function error(string $message, array $context = null)
+    public static function error(string $message, ?array $context = null)
     {
         return self::log(LogLevel::ERROR, $message, $context);
     }
 
-    public static function info(string $message, array $context = null)
+    public static function info(string $message, ?array $context = null)
     {
         return self::log(LogLevel::INFO, $message, $context);
     }
