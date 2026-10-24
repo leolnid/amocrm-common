@@ -10,7 +10,7 @@ use Tabuna\Breadcrumbs\Trail;
  * Шаблон маршрутов Orchid Platform
  *
  * Маршруты конкретных ресурсов (Users, Roles и т.д.)
- * регистрируются их провайдерами: app/Orchid/Resources/*/*Provider.php
+ * регистрируются их провайдерами: app/Orchid/Resources/{Resource}/{Resource}Provider.php
  */
 
 // Главная страница
