@@ -1,7 +1,7 @@
 {
   "files": {
     "components/reporting/README.md": "4311be797f7bc82bbbeed18ad7fa52c975340dc67c757f72302bf196bcf5b9bb",
-    "components/reporting/composer.json": "6c3fa96c2fa7e1cd1f6178e71e932b46639390ab30aca9009bdf6668a2562a98",
+    "components/reporting/composer.json": "2aac5d2048998d275d1295d915cf6cfd9d9490fd2484f607e9254e0646893654",
     "src/Reporting/Capture/LaravelErrorOutbox.php": "b8d7107eeb5caac36d1d9e4388b6e3b31c20739e924e0d5f3a7cc304cc63a35d",
     "src/Reporting/Capture/LaravelErrorReporter.php": "6eaafbbb4dd02628c2767201ca2a0afa019ca4bb8e6c8ccbd6715cba46bbd1d0",
     "src/Reporting/Capture/LaravelErrorServiceProvider.php": "8befa287e4d19929f1ef93514cb786f3cc1defec4279174c6bec63ae6d54e7af",
@@ -12,6 +12,7 @@
     "src/Reporting/Daily/BusinessActivity.php": "5a4adf199249fdbb2f7ce5d5214c21d9b763b49b6ea67030c7c4addb44f4ab70",
     "src/Reporting/Daily/BusinessConsoleActivity.php": "caa6350f70ffb8a9122f5014b6ca563191cdf2f8cd2c283b5a40495028be6fec",
     "src/Reporting/Daily/CompactDailyFormatter.php": "335de72305f9dc934b07c95e2cd75d6523c339ba1ddd1b8b9e7891504790eef5",
+    "src/Reporting/Daily/DailyReportService.php": "24251cdec76efe73d68c7962cecd9a1de201bcaa805c411a6c47bc301ac8c8cf",
     "src/Reporting/Daily/HttpPhaseMetrics.php": "767ef53a24b1463307aac73d8278ae3d6fc3bc271be53240360e7cac871dc23a",
     "src/Reporting/Daily/TelemetryDailyMetrics.php": "f524dfa010b94f571a60642e9ddd5aef0a4695e076350d4136233412517f9986",
     "src/Reporting/Daily/TelemetryLossLedger.php": "9dc4d374a2c1a5d5e930f1678389b44481f3dcfb521943c6863c1a7cc5ce60b8",
@@ -34,5 +35,5 @@
   },
   "package": "leolnid/common-reporting",
   "schema_version": 1,
-  "version": "1.0.0"
+  "version": "1.0.1"
 }
