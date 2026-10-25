@@ -1,0 +1,40 @@
+name: Reporting-only immutable release
+on:
+  push:
+    tags:
+      - 'reporting-v*'
+permissions: {}
+concurrency:
+  group: reporting-release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  release:
+    if: github.repository == 'leolnid/amocrm-common'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      SOURCE_COMMIT: ${{ github.sha }}
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - name: Checkout approved component paths
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout: |
+            src/Reporting
+            components/reporting
+          sparse-checkout-cone-mode: true
+      - name: Build deterministic allowlisted component
+        run: python3 components/reporting/build_dist.py --source-commit "$SOURCE_COMMIT" --tag "$RELEASE_TAG" --output-dir dist
+      - name: Publish new immutable assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'An existing release must never be overwritten.'
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --target "$SOURCE_COMMIT" --title "$RELEASE_TAG" --notes-file dist/RELEASE_NOTES.md dist/*.zip dist/*.zip.sha1 dist/*.zip.sha256 dist/release-manifest.json dist/package-metadata.json

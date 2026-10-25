@@ -1,0 +1,88 @@
+<?php
+declare(strict_types=1);
+namespace Leolnid\Common\Reporting\Capture;
+use Illuminate\Support\Facades\{Cache,Log};
+use Leolnid\Common\Reporting\Delivery\NotificationTransport;
+use Leolnid\Common\Reporting\Errors\{ContextAdapter,Deduplicator,ErrorReporter,HealthCheckIdentity,OperationResolver};
+abstract class LaravelErrorReporter
+{
+    protected const DEFINITION_CLASS='';
+    protected const OUTBOX_CLASS=LaravelErrorOutbox::class;
+    protected const APPROVED_CHAT_ID='';
+    private array $definition;
+    private array $context=[];
+    private array $consoleStack=[];
+    private ?string $failedConsole=null;
+    private ?int $failedExit=null;
+    private ?object $activeBusiness=null;
+    private \WeakMap $business;
+    private ErrorReporter $shared;
+    public ?array $lastReceipt=null;
+    public function __construct(NotificationTransport $transport)
+    {
+        $class=static::DEFINITION_CLASS;
+        if (!is_string($class)||$class===''||!defined($class.'::VALUE')) throw new \LogicException('Explicit project error definition required');
+        $this->definition=constant($class.'::VALUE');$this->definition['runtime_root']=base_path();$this->business=new \WeakMap;
+        $this->shared=new ErrorReporter(new Deduplicator(static fn(string $key,int $ttl):bool=>Cache::add($key,true,$ttl),(int)config('app_errors.dedup_seconds',60)),static fn(string $level,string $message,array $metadata)=>Log::channel('single')->log($level,$message,$metadata),fn():bool=>$this->ready(),fn(array $payload):array=>$transport->send($payload),function(array $payload,\Throwable $failure)use($transport):void {$class=static::OUTBOX_CLASS;(new $class($transport))->put($payload,$failure);},(string)config('app_errors.telegram.chat_id'),(int)config('app_errors.telegram.message_thread_id'));
+    }
+    public function setContext(array $context): void {$this->context=$context;$this->activeBusiness=null;}
+    public function clearContext(): void {$this->context=[];$this->activeBusiness=null;}
+    public function setBusinessContext(object $context): void {$this->activeBusiness=$context;}
+    public function ready(): bool
+    {
+        return !is_file(storage_path('app/error-notifications/.delivery-paused'))&&(bool)config('app_errors.enabled')&&is_string(config('app_errors.telegram.bot_token'))&&config('app_errors.telegram.bot_token')!==''&&static::APPROVED_CHAT_ID!==''&&(string)config('app_errors.telegram.chat_id')===static::APPROVED_CHAT_ID&&(int)config('app_errors.telegram.message_thread_id')>0;
+    }
+    public function reportBusiness(\Throwable $error, object $context): bool {$this->business[$error]=$context;return $this->report($error);}
+    public function attachBusinessContext(\Throwable $error, object $context): void {$this->business[$error]=$context;}
+    protected function refineContext(?object $context, \Throwable $error): ?object {return $context;}
+    public function reportFromHandler(\Throwable $error): bool {return $this->report($error,false,($this->context['source']??'')!=='queue');}
+    public function report(\Throwable $error, bool $test=false, bool $allowRemote=true): bool
+    {
+        $business=null;
+        try {
+            $scope=$this->context;
+            if ($this->failedExit!==null && !in_array($scope['source']??null,['queue','scheduler'],true)) $scope+=['source'=>'console','command_exit_code'=>$this->failedExit];
+            $metadata=LaravelMetadataContext::collect($error,$scope,$this->definition,$this->consoleSelector(),$test);
+            if (!$test) $business=$this->refineContext($this->business[$error]??$this->activeBusiness,$error);
+            $name=(string)config('app_errors.display_name',$this->definition['display_name']);$url=$this->definition['project_url'];
+            $message=($business!==null||$test)?ContextAdapter::normalize($name,$url,$business,$this->definition,$test,$error):OperationResolver::resolve($error,$name,$url,$metadata,$this->definition);
+            $metadata=LaravelMetadataContext::withIdentity($metadata,$business,$message);
+            $health=null;
+            $healthAction=match ($metadata['scheduled_command']??$metadata['console_command']??'') {'health:check'=>'health_checks','health:queue-check-heartbeat'=>'queue_heartbeat','health:schedule-check-heartbeat'=>'scheduler_heartbeat',default=>null};
+            $healthAction=match($metadata['job_class']??'') {'Spatie\\Health\\Jobs\\RunHealthChecksJob'=>'health_checks','Spatie\\Health\\Jobs\\HealthQueueJob'=>'queue_heartbeat',default=>$healthAction};
+            if ($healthAction!==null) $health=new HealthCheckIdentity($metadata['project'],$metadata['server'],$healthAction);
+            $result=$this->shared->report($error,$message,$metadata,$allowRemote,$health);$this->lastReceipt=$this->shared->lastReceipt;return $result;
+        } catch (\Throwable) {
+            // Even a broken adapter retains the original failure locally, without raw exception text.
+            $this->shared->report($error,null,['project'=>$this->definition['project'],'source'=>'console','exception_class'=>'Throwable','observer_context_failed'=>true],false);return false;
+        }
+    }
+    public function reportLegacy(?\Throwable $error, string $channel): bool
+    {
+        if ($error!==null) return $this->report($error);
+        if (!preg_match('/^[A-Za-z0-9_.-]{1,64}$/D',$channel)) $channel='unknown';
+        $synthetic=new \RuntimeException();
+        try {$metadata=LaravelMetadataContext::collect($synthetic,$this->context,$this->definition,$this->consoleSelector(),false);}
+        catch (\Throwable) {$metadata=['project'=>$this->definition['project'],'source'=>'console','exception_class'=>'RuntimeException'];}
+        return $this->shared->report($synthetic,null,$metadata+['legacy_channel'=>$channel,'legacy_exception_missing'=>true,'classification_gap'=>true],false);
+    }
+    public function sendTest(): bool {return $this->report(new \RuntimeException(),true);}
+    public function consoleStarting(string $name): void
+    {
+        if (!$this->consoleStack) {$this->failedConsole=null;$this->failedExit=null;}
+        if (count($this->consoleStack)>=16) {$this->clearConsoleContext();return;}
+        $this->consoleStack[]=isset($this->definition['operations']['command:'.$name])?$name:'unknown';
+    }
+    public function consoleFinished(string $name, int $exitCode): void
+    {
+        $name=isset($this->definition['operations']['command:'.$name])?$name:'unknown';
+        if (!$this->consoleStack||array_pop($this->consoleStack)!==$name) {$this->clearConsoleContext();return;}
+        $this->failedConsole=$exitCode!==0&&$name!=='unknown'?$name:null;$this->failedExit=$this->failedConsole!==null&&$exitCode>0&&$exitCode<=255?$exitCode:null;
+    }
+    public function clearConsoleContext(): void {$this->consoleStack=[];$this->failedConsole=null;$this->failedExit=null;}
+    private function consoleSelector(): ?string
+    {
+        foreach (array_reverse($this->consoleStack)as$name) if ($name!=='unknown') return $name;
+        return !$this->consoleStack?$this->failedConsole:null;
+    }
+}

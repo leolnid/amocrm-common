@@ -1,0 +1,16 @@
+{
+  "name": "leolnid/common-reporting",
+  "description": "Opt-in shared reporting component from amocrm-common",
+  "version": "1.0.0",
+  "type": "library",
+  "license": "proprietary",
+  "require": {
+    "php": "^8.5",
+    "laravel/framework": "^12.0 || ^13.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "Leolnid\\Common\\Reporting\\": "src/Reporting/"
+    }
+  }
+}
