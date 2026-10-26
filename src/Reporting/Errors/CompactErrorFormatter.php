@@ -5,7 +5,9 @@ final class CompactErrorFormatter
 {
     public static function render(ErrorMessage $message): string
     {
-        $title = '⚠️ <b><a href="'.self::escape($message->projectUrl).'">'.self::escape($message->project).'</a></b>';
+        $title = '⚠️ <b>'.($message->projectUrl === null
+            ? self::escape($message->project)
+            : '<a href="'.self::escape($message->projectUrl).'">'.self::escape($message->project).'</a>').'</b>';
         $failureText=self::bounded($message->failure->text($message->reason),115);
         $failure = '<b>Ошибка:</b> '.self::escape(rtrim($failureText, '. ').'.');
         if ($message->repeatCount>0) $failure.=' <i>(Повторов: '.$message->repeatCount.')</i>';

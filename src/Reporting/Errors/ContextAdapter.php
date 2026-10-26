@@ -4,7 +4,7 @@ namespace Leolnid\Common\Reporting\Errors;
 /** Converts only already-loaded public scalar context through an application-owned fixed catalog. */
 final class ContextAdapter
 {
-    public static function normalize(string $project, string $projectUrl, ?object $context, array $definition, bool $test = false, ?\Throwable $error = null): ?ErrorMessage
+    public static function normalize(string $project, ?string $projectUrl, ?object $context, array $definition, bool $test = false, ?\Throwable $error = null): ?ErrorMessage
     {
         $data=[];$spec=[];
         try {
@@ -36,7 +36,7 @@ final class ContextAdapter
             return new ErrorMessage($project,$projectUrl,$action,$reason,$objects,false,$contextItems);
         } catch (\InvalidArgumentException|\TypeError) { return $error===null?null:self::fallback($project,$projectUrl,$data,$definition,$error,$spec['context']??self::fallbackSpecs($definition),$spec['action']??[]); }
     }
-    private static function fallback(string $project,string $projectUrl,array $data,array $definition,\Throwable $error,array $contextSpec,array $actionSpec): ErrorMessage
+    private static function fallback(string $project,?string $projectUrl,array $data,array $definition,\Throwable $error,array $contextSpec,array $actionSpec): ErrorMessage
     {
         $action=ErrorAction::unknown();$operations=$definition['operations']??[];$operation=$data['operation']??null;
         if (isset($actionSpec['known'])) { try { $action=ErrorAction::known($actionSpec['known']); } catch (\InvalidArgumentException) {} }

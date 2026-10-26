@@ -62,7 +62,39 @@ final class CompactDailyFormatter
             $errorComplete=($m['errors']['coverage']['state']??'unknown')==='complete';
             $errorValue=$errorComplete?($m['errors']['count']??null):($m['errors']['observed_count']??null);
             $errorText=$errorComplete?$n($errorValue):(is_int($errorValue)&&$errorValue>0?'не менее '.$errorValue:'нет данных');
-            $note=($m['classification_coverage']['reason']??null)==='cli_unobserved'?'Данные неполные: фоновые команды ещё не учтены.':'Данные неполные.';
+            $note='Данные неполные.';
+            if(($m['classification_coverage']['reason']??null)==='cli_unobserved'){
+                $cliFrom=$m['business_cli']['coverage']['from_utc']??null;
+                try{$cliStart=is_string($cliFrom)?(new DateTimeImmutable($cliFrom))->setTimezone(new DateTimeZone('Europe/Moscow'))->format('d.m H:i'):null;}catch(Throwable){$cliStart=null;}
+                $note=$cliStart!==null?'Данные неполные: фоновые команды учитываются с '.$cliStart.'; итог за сутки неполный.':'Данные неполные: период наблюдения фоновых команд короче суток.';
+            }
+            $heartbeatCoverage=$m['heartbeat_coverage']??[];
+            $before=$heartbeatCoverage['unobserved_before_epoch_minutes']??null;
+            $observationFrom=$heartbeatCoverage['observation_from_utc']??null;
+            if(is_int($before)&&$before>0&&is_string($observationFrom)){
+                try{$observedStart=(new DateTimeImmutable($observationFrom))->setTimezone(new DateTimeZone('Europe/Moscow'))->format('d.m H:i');$note.=' Подтверждённый учёт начинается с '.$observedStart.'; первые '.$before.' мин. не подтверждены.';}catch(Throwable){}
+            }
+            $lossCoverage=$m['telemetry_loss_coverage']??null;
+            if(is_array($lossCoverage)&&($lossCoverage['fully_classified']??false)!==true&&($lossCoverage['epoch_utc']??null)===null)$note.=' Полнота учёта потерь не подтверждена.';
+            $observed=$m['observed_counts']??[];
+            $allObservedZero=is_array($observed)&&array_intersect(['accepted','rejected','processed','failed'],array_keys($observed))===['accepted','rejected','processed','failed'];
+            if($allObservedZero){foreach(['accepted','rejected','processed','failed'] as $key){if(($observed[$key]??null)!==0){$allObservedZero=false;break;}}}
+            $heartbeat=$m['heartbeat_coverage']??[];
+            $missingMinutes=$heartbeat['missing_minutes']??null;
+            $periodMinutes=$heartbeat['period_minutes']??null;
+            $observedMinutes=$heartbeat['observed_minutes']??null;
+            $beforeEpochMinutes=$heartbeat['unobserved_before_epoch_minutes']??null;
+            if($allObservedZero&&($m['telemetry_observation_reliable']??false)===true&&is_int($missingMinutes)&&is_int($periodMinutes)&&is_int($observedMinutes)&&is_int($beforeEpochMinutes)&&($missingMinutes>0||$beforeEpochMinutes>0)){
+                $detail='Есть данные за '.$observedMinutes.' из '.$periodMinutes.' минут.';
+                $uncertainty=[];
+                if($missingMinutes>0)$uncertainty[]='пропуск отметок мониторинга за '.$missingMinutes.' мин.';
+                if($beforeEpochMinutes>0)$uncertainty[]='до начала подтверждённого учёта нет данных за '.$beforeEpochMinutes.' мин.';
+                $queue=($m['pending_kind']??'')==='queue'&&is_int($m['pending_now']??null)&&$m['pending_now']>=0?'В очереди сейчас: '.$m['pending_now'].'.':null;
+                $lines=[$header,'За время наблюдения событий не зарегистрировано. '.$detail.' '.implode(' ',$uncertainty).' Полный итог неизвестен.'];
+                if($queue!==null)$lines[]=$queue;
+                $lines[]=$health;
+                return self::withCli(implode("\n",$lines),$m);
+            }
             if(!$valid($requests)&&!$valid($responses)&&!$valid($processed)&&!$valid($failed)&&!(is_int($errorValue)&&$errorValue>0))return self::withCli(implode("\n",[$header,'Статистика пока недоступна. '.$note,$health]),$m);
             $queue=($m['pending_kind']??'')==='queue'&&is_int($m['pending_now']??null)&&$m['pending_now']>=0?' · в очереди '.$m['pending_now']:'';
             return self::withCli(implode("\n",[$header,($legacyExit&&!$hasHttp&&!$hasReceivedCounter?'Обработано запросов: ':'Запросов: ').$lower($requests).' · ошибок ответа: '.$lower($responses),
@@ -82,7 +114,7 @@ final class CompactDailyFormatter
         $lines=[$header,$requestLabel.$number($requests).' · ошибок ответа: '.$number($responseErrors),
             'Задачи: '.$number($c['processed']??null).' завершено, '.$number($c['failed']??null).' с ошибкой'.$queue,
             $health.' · ошибок в журнале: '.$errors];
-        if($onboarding)$lines[]='За часть суток: с '.$from->setTimezone(new DateTimeZone('Europe/Moscow'))->format('d.m H:i').'.';
+        if($onboarding){$startText='За часть суток: сбор с '.$from->setTimezone(new DateTimeZone('Europe/Moscow'))->format('d.m H:i');$before=$m['heartbeat_coverage']['unobserved_before_epoch_minutes']??null;if(is_int($before)&&$before>0)$startText.='; до начала наблюдения нет данных за '.$before.' мин.';$lines[]=$startText.'. Полный итог неизвестен.';}
         return self::withCli(implode("\n",$lines),$m);
     }
 

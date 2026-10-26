@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace Leolnid\Common\Reporting\Errors;
 final class OperationResolver
 {
-    public static function resolve(\Throwable $error, string $project, string $projectUrl, array $metadata, array $definition): ?ErrorMessage
+    public static function resolve(\Throwable $error, string $project, ?string $projectUrl, array $metadata, array $definition): ?ErrorMessage
     {
         $http=is_string($metadata['http_action']??null)?$metadata['http_action']:'';$job=is_string($metadata['job_class']??null)?$metadata['job_class']:'';if (is_string($http)&&str_ends_with($http,'@__invoke')) $http=substr($http,0,-9);
         $key=match($metadata['source']??null) {

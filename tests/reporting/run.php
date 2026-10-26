@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 $php=PHP_BINARY;
-$tests=[__DIR__.'/semantic.php',__DIR__.'/reporter-pipeline.php'];
+$tests=[__DIR__.'/semantic.php',__DIR__.'/reporter-pipeline.php',__DIR__.'/nullable-project-link.php',__DIR__.'/partial-coverage.php'];
 foreach($tests as $test){
  $cmd=[ $php, $test ];
  $proc=proc_open($cmd,[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);

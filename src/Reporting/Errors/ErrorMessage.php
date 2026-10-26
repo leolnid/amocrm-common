@@ -6,7 +6,7 @@ final readonly class ErrorMessage
     /** @param list<ErrorObject> $objects @param list<ErrorContextItem> $context */
     public function __construct(
         public string $project,
-        public string $projectUrl,
+        public ?string $projectUrl,
         public ErrorAction $failure,
         public ErrorReason $reason,
         public array $objects = [],
@@ -16,7 +16,7 @@ final readonly class ErrorMessage
         public int $repeatCount = 0,
     ) {
         self::text($project, 100);
-        self::url($projectUrl);
+        if ($projectUrl !== null) self::url($projectUrl);
         if (!array_is_list($objects) || count($objects) > 3) throw new \InvalidArgumentException('Invalid notification objects');
         foreach ($objects as $object) if (!$object instanceof ErrorObject) throw new \InvalidArgumentException('Invalid notification object');
         if (!array_is_list($context)) throw new \InvalidArgumentException('Invalid notification context');
