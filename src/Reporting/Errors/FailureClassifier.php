@@ -45,6 +45,8 @@ final class FailureClassifier
     {
         if (!preg_match('//u',$message)) return null;
         $detail=strip_tags($message);
+        $credentialProbe=rawurldecode($detail);
+        if (preg_match('/\b(?:bearer|basic|token|secret|password|passwd|cookie|authorization|api[_\s-]?key|client[_\s-]?secret|access[_\s-]?token|refresh[_\s-]?token)\b|токен|секрет|парол|куки|авторизац/iu',$credentialProbe)) return null;
         $detail=preg_replace('/\b(?:bearer|basic)\s+[A-Za-z0-9._~+\/-]+=*/i','[скрыто]',$detail)??'';
         $detail=preg_replace('~[\"\x27]?(?:authorization|password|passwd|secret|api[_ -]?key|client[_ -]?secret|access[_ -]?token|refresh[_ -]?token|cookie)[\"\x27]?\s*[:=]\s*(?:\"[^\"]{0,300}\"|\x27[^\x27]{0,300}\x27|[^\s,;}]+)~i','[скрыто]',$detail)??'';
         $detail=preg_replace('/\bCookie\s*:\s*[^,\r\n]+/i','[cookie скрыта]',$detail)??'';

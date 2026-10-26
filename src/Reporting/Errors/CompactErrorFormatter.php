@@ -24,7 +24,8 @@ final class CompactErrorFormatter
             $identity=self::logicalIdentity($type,$id);
             if ($identity!==null && isset($seen[$identity])) continue;
             if ($identity!==null) $seen[$identity]=true;
-            $context[]=self::contextLine($legacyLabels[$object->type]??'Объект',$object->value,$object->url);
+            $label=$object->type==='account'&&str_contains($object->value,'-')?'Подключение':($legacyLabels[$object->type]??'Объект');
+            $context[]=self::contextLine($label,$object->value,$object->url);
         }
         $body=$title."\n\n".$failure."\n".$reason;
         if (($message->reason->code==='processing_error'||$message->failure->code==='unknown_operation') && $message->eventCode!==null) $body.="\n<b>Код события:</b> <code>".self::escape($message->eventCode)."</code>";

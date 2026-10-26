@@ -27,8 +27,10 @@ final readonly class ErrorObject
             };
             if (!$allowed) throw new \InvalidArgumentException('Object link outside registered route');
         }
-        $value=($type === 'account' && str_contains($id,'-')) ? $id : '#'.$id;
-        return new self($type,$type === 'account' && str_contains($id,'-') ? 'Аккаунт' : self::LABELS[$type].' #'.$id,$value,$url);
+        $internalAccountUuid=$type === 'account' && str_contains($id,'-');
+        $value=$internalAccountUuid ? $id : '#'.$id;
+        $label=$internalAccountUuid ? 'Подключение' : self::LABELS[$type].' #'.$id;
+        return new self($type,$label,$value,$url);
     }
     private static function moduleLink(string $host, string $path, string $id): bool
     {
