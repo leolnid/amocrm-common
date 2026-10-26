@@ -27,7 +27,7 @@ final readonly class ErrorObject
             };
             if (!$allowed) throw new \InvalidArgumentException('Object link outside registered route');
         }
-        $internalAccountUuid=$type === 'account' && str_contains($id,'-');
+        $internalAccountUuid=$type === 'account' && self::isUuid($id);
         $value=$internalAccountUuid ? $id : '#'.$id;
         $label=$internalAccountUuid ? 'Подключение' : self::LABELS[$type].' #'.$id;
         return new self($type,$label,$value,$url);
@@ -50,4 +50,5 @@ final readonly class ErrorObject
         return new self('account','Аккаунт '.$host,$host, 'https://'.$host.'/');
     }
     public static function crmHost(string $host): bool { return preg_match('/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.amocrm\.(?:ru|com)$/D',$host) === 1; }
+    private static function isUuid(string $value): bool { return preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iD',$value)===1; }
 }

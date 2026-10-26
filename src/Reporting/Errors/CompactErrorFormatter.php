@@ -24,7 +24,7 @@ final class CompactErrorFormatter
             $identity=self::logicalIdentity($type,$id);
             if ($identity!==null && isset($seen[$identity])) continue;
             if ($identity!==null) $seen[$identity]=true;
-            $label=$object->type==='account'&&str_contains($object->value,'-')?'Подключение':($legacyLabels[$object->type]??'Объект');
+            $label=$object->type==='account'&&preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iD',$object->value)===1?'Подключение':($legacyLabels[$object->type]??'Объект');
             $context[]=self::contextLine($label,$object->value,$object->url);
         }
         $body=$title."\n\n".$failure."\n".$reason;
