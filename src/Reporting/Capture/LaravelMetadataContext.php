@@ -50,6 +50,9 @@ final class LaravelMetadataContext
         }
         foreach (['crmHost','accountDomain'] as $field) if (is_string($data[$field]??null)&&ErrorObject::crmHost($data[$field])) $metadata['account_domain']=$data[$field];
         if (is_string($data['kind']??null)&&preg_match('/^[a-z0-9_]{1,100}$/D',$data['kind'])) $metadata['context_kind']=$data['kind'];
+        $typed=$data['context_items']??null;$identity=[];
+        if (is_array($typed)&&array_is_list($typed)) foreach($typed as $item) if($item instanceof \Leolnid\Common\Reporting\Errors\ErrorContextItem&&$item->id!==null) $identity[]=['key'=>$item->key,'id'=>$item->id];
+        if($identity!==[]) $metadata['context_identity']=$identity;
         return $metadata;
     }
     private static function command(mixed $name, array $definition): string

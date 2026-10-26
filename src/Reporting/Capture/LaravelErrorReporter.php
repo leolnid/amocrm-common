@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace Leolnid\Common\Reporting\Capture;
 use Illuminate\Support\Facades\{Cache,Log};
 use Leolnid\Common\Reporting\Delivery\NotificationTransport;
-use Leolnid\Common\Reporting\Errors\{ContextAdapter,Deduplicator,ErrorReporter,HealthCheckIdentity,OperationResolver};
+use Leolnid\Common\Reporting\Errors\{ContextAdapter,Deduplicator,ErrorReporter,HealthCheckIdentity,OperationResolver,SourcePins};
 abstract class LaravelErrorReporter
 {
     protected const DEFINITION_CLASS='';
@@ -23,7 +23,25 @@ abstract class LaravelErrorReporter
         $class=static::DEFINITION_CLASS;
         if (!is_string($class)||$class===''||!defined($class.'::VALUE')) throw new \LogicException('Explicit project error definition required');
         $this->definition=constant($class.'::VALUE');$this->definition['runtime_root']=base_path();$this->business=new \WeakMap;
-        $this->shared=new ErrorReporter(new Deduplicator(static fn(string $key,int $ttl):bool=>Cache::add($key,true,$ttl),(int)config('app_errors.dedup_seconds',60)),static fn(string $level,string $message,array $metadata)=>Log::channel('single')->log($level,$message,$metadata),fn():bool=>$this->ready(),fn(array $payload):array=>$transport->send($payload),function(array $payload,\Throwable $failure)use($transport):void {$class=static::OUTBOX_CLASS;(new $class($transport))->put($payload,$failure);},(string)config('app_errors.telegram.chat_id'),(int)config('app_errors.telegram.message_thread_id'));
+        $repeatState=static function(string $key,int $ttl,string $action,int $acknowledged):array {
+            $lock=Cache::lock('app-errors:repeat-lock:'.hash('sha256',$key),5);
+            return $lock->block(2,static function()use($key,$ttl,$action,$acknowledged):array {
+                $counter=$key.':repeat-count';
+                if($action==='claim') {
+                    $count=max(0,min(999999,(int)Cache::get($counter,0)));
+                    if(Cache::add($key,true,$ttl)) return ['first'=>true,'repeat_count'=>$count];
+                    Cache::put($counter,min(999999,$count+1),$ttl*2);
+                    return ['first'=>false,'repeat_count'=>0];
+                }
+                if($action==='ack') {
+                    $count=max(0,min(999999,(int)Cache::get($counter,0)));
+                    $remaining=max(0,$count-max(0,$acknowledged));
+                    if($remaining===0) Cache::forget($counter); else Cache::put($counter,$remaining,$ttl*2);
+                }
+                return ['first'=>false,'repeat_count'=>0];
+            });
+        };
+        $this->shared=new ErrorReporter(new Deduplicator(static fn(string $key,int $ttl):bool=>Cache::add($key,true,$ttl),(int)config('app_errors.dedup_seconds',60),$repeatState),static fn(string $level,string $message,array $metadata)=>Log::channel('single')->log($level,$message,$metadata),fn():bool=>$this->ready(),fn(array $payload):array=>$transport->send($payload),function(array $payload,\Throwable $failure)use($transport):void {$class=static::OUTBOX_CLASS;(new $class($transport))->put($payload,$failure);},(string)config('app_errors.telegram.chat_id'),(int)config('app_errors.telegram.message_thread_id'));
     }
     public function setContext(array $context): void {$this->context=$context;$this->activeBusiness=null;}
     public function clearContext(): void {$this->context=[];$this->activeBusiness=null;}
@@ -35,6 +53,8 @@ abstract class LaravelErrorReporter
     public function reportBusiness(\Throwable $error, object $context): bool {$this->business[$error]=$context;return $this->report($error);}
     public function attachBusinessContext(\Throwable $error, object $context): void {$this->business[$error]=$context;}
     protected function refineContext(?object $context, \Throwable $error): ?object {return $context;}
+    /** BC hook for app-owned typed context assembled from already-collected safe metadata. */
+    protected function refineContextForFailure(?object $context, \Throwable $error, array $metadata, array $scope): ?object {return $this->refineContext($context,$error);}
     public function reportFromHandler(\Throwable $error): bool {return $this->report($error,false,($this->context['source']??'')!=='queue');}
     public function report(\Throwable $error, bool $test=false, bool $allowRemote=true): bool
     {
@@ -43,10 +63,22 @@ abstract class LaravelErrorReporter
             $scope=$this->context;
             if ($this->failedExit!==null && !in_array($scope['source']??null,['queue','scheduler'],true)) $scope+=['source'=>'console','command_exit_code'=>$this->failedExit];
             $metadata=LaravelMetadataContext::collect($error,$scope,$this->definition,$this->consoleSelector(),$test);
-            if (!$test) $business=$this->refineContext($this->business[$error]??$this->activeBusiness,$error);
+            if (!$test) $business=$this->refineContextForFailure($this->business[$error]??$this->activeBusiness,$error,$metadata,$scope);
+            if($business!==null&&(($data=get_object_vars($business))['kind']??null)==='unmapped_loaded_context'&&!is_string($data['operation']??null)){
+                $registered=OperationResolver::resolve($error,(string)config('app_errors.display_name',$this->definition['display_name']),$this->definition['project_url'],$metadata,$this->definition);
+                if($registered!==null){$data['operation']=$registered->failure->code;$business=(object)$data;}
+            }
             $name=(string)config('app_errors.display_name',$this->definition['display_name']);$url=$this->definition['project_url'];
             $message=($business!==null||$test)?ContextAdapter::normalize($name,$url,$business,$this->definition,$test,$error):OperationResolver::resolve($error,$name,$url,$metadata,$this->definition);
+            if(!$test&&$business!==null&&!$this->canUseUnknownFallback($metadata))$allowRemote=false;
+            $unknownFallback=false;
+            if (!$test && $business===null && $message===null && $this->canUseUnknownFallback($metadata)) {
+                $message=ContextAdapter::normalize($name,$url,null,$this->definition,false,$error);
+                $unknownFallback=$message!==null;
+                if ($unknownFallback && $this->isBenignUnknownHttpFailure($error,$metadata)) $allowRemote=false;
+            }
             $metadata=LaravelMetadataContext::withIdentity($metadata,$business,$message);
+            if ($unknownFallback) $metadata['unknown_operation_fallback']=true;
             $health=null;
             $healthAction=match ($metadata['scheduled_command']??$metadata['console_command']??'') {'health:check'=>'health_checks','health:queue-check-heartbeat'=>'queue_heartbeat','health:schedule-check-heartbeat'=>'scheduler_heartbeat',default=>null};
             $healthAction=match($metadata['job_class']??'') {'Spatie\\Health\\Jobs\\RunHealthChecksJob'=>'health_checks','Spatie\\Health\\Jobs\\HealthQueueJob'=>'queue_heartbeat',default=>$healthAction};
@@ -56,6 +88,20 @@ abstract class LaravelErrorReporter
             // Even a broken adapter retains the original failure locally, without raw exception text.
             $this->shared->report($error,null,['project'=>$this->definition['project'],'source'=>'console','exception_class'=>'Throwable','observer_context_failed'=>true],false);return false;
         }
+    }
+    private function canUseUnknownFallback(array $metadata): bool
+    {
+        $job=$metadata['job_class']??null;
+        if (($metadata['source']??null)!=='queue' || !is_string($job) || !str_starts_with($job,'Closure ')) return true;
+        $pin=$this->definition['closure_source_pins'][$job]??null;
+        return is_array($pin)&&SourcePins::verify($this->definition['runtime_root']??'', $pin);
+    }
+    private function isBenignUnknownHttpFailure(\Throwable $error,array $metadata): bool
+    {
+        if (($metadata['source']??null)!=='http') return false;
+        foreach (['Illuminate\\Validation\\ValidationException','Illuminate\\Auth\\AuthenticationException','Illuminate\\Auth\\Access\\AuthorizationException','Illuminate\\Database\\Eloquent\\ModelNotFoundException','Symfony\\Component\\HttpKernel\\Exception\\NotFoundHttpException','Symfony\\Component\\HttpKernel\\Exception\\AccessDeniedHttpException','Symfony\\Component\\HttpKernel\\Exception\\UnauthorizedHttpException'] as $class) if (is_a($error,$class)) return true;
+        if (is_a($error,'Symfony\\Component\\HttpKernel\\Exception\\HttpExceptionInterface') && method_exists($error,'getStatusCode')) return in_array($error->getStatusCode(),[401,403,404,422],true);
+        return false;
     }
     public function reportLegacy(?\Throwable $error, string $channel): bool
     {

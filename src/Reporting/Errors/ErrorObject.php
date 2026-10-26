@@ -4,7 +4,7 @@ namespace Leolnid\Common\Reporting\Errors;
 final readonly class ErrorObject
 {
     private const LABELS = ['rule'=>'Правило','lead'=>'Сделка','contact'=>'Контакт','request'=>'Запрос','module'=>'Модуль','account'=>'Аккаунт'];
-    private function __construct(public string $label, public ?string $url = null) {}
+    private function __construct(public string $type, public string $label, public string $value, public ?string $url = null) {}
     public static function id(mixed $value, bool $uuid = false): string
     {
         if (is_int($value) && $value > 0) return (string)$value;
@@ -27,7 +27,8 @@ final readonly class ErrorObject
             };
             if (!$allowed) throw new \InvalidArgumentException('Object link outside registered route');
         }
-        return new self($type === 'account' && str_contains($id,'-') ? 'Аккаунт' : self::LABELS[$type].' #'.$id,$url);
+        $value=($type === 'account' && str_contains($id,'-')) ? $id : '#'.$id;
+        return new self($type,$type === 'account' && str_contains($id,'-') ? 'Аккаунт' : self::LABELS[$type].' #'.$id,$value,$url);
     }
     private static function moduleLink(string $host, string $path, string $id): bool
     {
@@ -39,12 +40,12 @@ final readonly class ErrorObject
     public static function accountReference(mixed $id, ?string $url = null, ?string $crmHost = null): self
     {
         $reference=self::reference('account',$id,$url);
-        return $crmHost !== null && self::crmHost($crmHost) ? new self('Аккаунт '.$crmHost,$reference->url) : $reference;
+        return $crmHost !== null && self::crmHost($crmHost) ? new self('account','Аккаунт '.$crmHost,$crmHost,$reference->url) : $reference;
     }
     public static function crmAccount(string $host): self
     {
         if (!self::crmHost($host)) throw new \InvalidArgumentException('Invalid loaded CRM host');
-        return new self('Аккаунт '.$host, 'https://'.$host.'/');
+        return new self('account','Аккаунт '.$host,$host, 'https://'.$host.'/');
     }
     public static function crmHost(string $host): bool { return preg_match('/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.amocrm\.(?:ru|com)$/D',$host) === 1; }
 }

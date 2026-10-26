@@ -6,13 +6,14 @@ final class ContextAdapter
 {
     public static function normalize(string $project, string $projectUrl, ?object $context, array $definition, bool $test = false, ?\Throwable $error = null): ?ErrorMessage
     {
+        $data=[];$spec=[];
         try {
             if ($test) return new ErrorMessage($project,$projectUrl,ErrorAction::known('test'),new ErrorReason('internal_error'),[],true);
-            if ($context === null) return null;
+            if ($context === null) return $error===null?null:self::fallback($project,$projectUrl,$data,$definition,$error,[],[]);
             $data=get_object_vars($context);$kind=$data['kind']??null;
-            if (!is_string($kind)) return null;
+            if (!is_string($kind)) return $error===null?null:self::fallback($project,$projectUrl,$data,$definition,$error,[],[]);
             $defaults=self::defaultKinds($definition['operations']??[]);
-            if (!isset($defaults[$kind]) && !isset($definition['kinds'][$kind])) return null;
+            if (!isset($defaults[$kind]) && !isset($definition['kinds'][$kind])) return $error===null?null:self::fallback($project,$projectUrl,$data,$definition,$error,self::fallbackSpecs($definition),[]);
             $spec=array_replace_recursive($defaults[$kind]??[],$definition['kinds'][$kind]??[]);$action=self::action($data,$spec['action']);$reason=self::reason($data,$spec['reason']);$objects=[];
             if ($reason->code === 'processing_error' && $error !== null) $reason=FailureClassifier::classify($error,$definition['default_service']??'external');
             foreach ($spec['objects']??[] as $object) {
@@ -31,8 +32,75 @@ final class ContextAdapter
                 $host=isset($object['display_host']) ? ($data[$object['display_host']]??null) : null;
                 $objects[]=$object['type']==='account' ? ErrorObject::accountReference($id,$url,is_string($host)?$host:null) : ErrorObject::reference($object['type'],$id,$url);
             }
-            return new ErrorMessage($project,$projectUrl,$action,$reason,$objects);
-        } catch (\InvalidArgumentException|\TypeError) { return null; }
+            $contextItems=self::contextItems($data,$spec['context']??[],$definition['context_catalog']??[]);
+            return new ErrorMessage($project,$projectUrl,$action,$reason,$objects,false,$contextItems);
+        } catch (\InvalidArgumentException|\TypeError) { return $error===null?null:self::fallback($project,$projectUrl,$data,$definition,$error,$spec['context']??self::fallbackSpecs($definition),$spec['action']??[]); }
+    }
+    private static function fallback(string $project,string $projectUrl,array $data,array $definition,\Throwable $error,array $contextSpec,array $actionSpec): ErrorMessage
+    {
+        $action=ErrorAction::unknown();$operations=$definition['operations']??[];$operation=$data['operation']??null;
+        if (isset($actionSpec['known'])) { try { $action=ErrorAction::known($actionSpec['known']); } catch (\InvalidArgumentException) {} }
+        if (isset($actionSpec['registered_field'])) $operation=$data[$actionSpec['registered_field']]??$operation;
+        if (is_string($operation) && isset($operations[$operation])) $action=ErrorAction::registered($operation,$operations);
+        if (isset($actionSpec['field'],$actionSpec['map'])) { $code=$actionSpec['map'][$data[$actionSpec['field']]??'']??null; if(is_string($code)){try{$action=ErrorAction::known($code);}catch(\InvalidArgumentException){}} }
+        $reason=FailureClassifier::classify($error,$definition['default_service']??'external');
+        try { $items=self::contextItems($data,$contextSpec,$definition['context_catalog']??[]); }
+        catch (\InvalidArgumentException|\TypeError) { $items=[]; }
+        return new ErrorMessage($project,$projectUrl,$action,$reason,[],false,$items);
+    }
+    private static function contextItems(array $data,array $specs,array $catalog): array
+    {
+        $items=[];
+        $providedItems=$data['context_items']??[];
+        if (is_array($providedItems)&&array_is_list($providedItems)) foreach ($providedItems as $provided) {
+            try {
+                if (!$provided instanceof ErrorContextItem || ($catalog[$provided->key]??null)!==$provided->label) continue;
+                $items[]=$provided;
+            } catch (\Throwable) { continue; }
+        }
+        foreach ($specs as $item) {
+            try {
+                if (!is_array($item)) continue;
+                if (isset($item['when']) && ($data[$item['when']['field']]??null) !== $item['when']['equals']) continue;
+                $key=$item['key']??null;$label=is_string($key)?($catalog[$key]??null):null;
+                if (!is_string($key) || !is_string($label) || (!is_string($item['id']??null) && !is_string($item['name']??null))) continue;
+                $id=isset($item['id']) ? ($data[$item['id']]??null) : null;
+                if ($id===0 || $id==='') $id=null;
+                $name=isset($item['name']) ? ($data[$item['name']]??null) : null;
+                if ($name!==null && !is_string($name)) $name=null;
+                if ($id===null && ($name===null || trim($name)==='')) {if ($item['optional']??false) continue;}
+                $receivedAt=isset($item['received_at']) ? ($data[$item['received_at']]??null) : null;
+                if ($receivedAt!==null && !is_string($receivedAt)) $receivedAt=null;
+                if ($key==='request' && $id===null) continue;
+                $url=null;
+                if (isset($item['url'])) {
+                    try { $url=self::url($item['url'],$data,$item['params']??[]); }
+                    catch (\InvalidArgumentException) { if (!($item['optional_url']??false)) $url=null; }
+                }
+                $items[]=ErrorContextItem::loaded($key,$label,$id,$name,$url,$receivedAt);
+            } catch (\InvalidArgumentException|\TypeError) { continue; }
+        }
+        return $items;
+    }
+    /** Select only mappings whose meaning is identical across all registered operation catalogs. */
+    private static function fallbackSpecs(array $definition): array
+    {
+        $specs=$definition['fallback_context']??[];
+        $seen=[];$conflicts=[];
+        foreach (($definition['kinds']??[]) as $kind) foreach (($kind['context']??[]) as $item) {
+            if (!is_array($item) || !is_string($item['key']??null)) continue;
+            $identity=($item['id']??'').'|'.($item['name']??'').'|'.($item['url']??'').'|'.json_encode($item['params']??[]);
+            $key=$item['key'].'|'.$identity;
+            $fieldIdentity=($item['id']??'').'|'.($item['name']??'');
+            if (isset($seen[$fieldIdentity]) && $seen[$fieldIdentity]!==$item['key']) $conflicts[$fieldIdentity]=true;
+            $seen[$fieldIdentity]=$item['key'];
+            $specs[$key]=$item;
+        }
+        foreach ($specs as $key=>$item) {
+            $fieldIdentity=($item['id']??'').'|'.($item['name']??'');
+            if (isset($conflicts[$fieldIdentity])) unset($specs[$key]);
+        }
+        return array_values($specs);
     }
     private static function defaultKinds(array $catalog): array
     {

@@ -28,11 +28,14 @@ final class ErrorReporter
             if ($message === null || !$allowRemote || ($this->ready)() !== true || isset($this->observed[$error])) return false;
             if (!($health === null ? $this->deduplicator->first($metadata) : $this->deduplicator->firstHealth($health))) return false;
             $this->observed[$error] = true;
-            $payload = ['chat_id'=>$this->chatId, 'message_thread_id'=>$this->threadId, 'text'=>CompactErrorFormatter::render($message), 'parse_mode'=>'HTML', 'disable_web_page_preview'=>true, 'disable_notification'=>false];
-            try { $this->lastReceipt = ($this->send)($payload); return true; }
+            $renderMessage=$message->withEventCode($correlation)->withRepeatCount($this->deduplicator->repeatCount());
+            $payload = ['chat_id'=>$this->chatId, 'message_thread_id'=>$this->threadId, 'text'=>CompactErrorFormatter::render($renderMessage), 'parse_mode'=>'HTML', 'disable_web_page_preview'=>true, 'disable_notification'=>false];
+            try { $this->lastReceipt = ($this->send)($payload); $this->deduplicator->acknowledgeRepeats(); return true; }
             catch (\Throwable $delivery) {
-                try { ($this->outbox)($payload, $delivery); }
+                $queued=false;
+                try { ($this->outbox)($payload, $delivery); $queued=true; }
                 catch (\Throwable $failure) { $this->write('critical', 'Application error outbox unavailable', ['failure_class'=>self::exceptionName($failure)]); }
+                if ($queued) $this->deduplicator->acknowledgeRepeats();
                 $this->write('warning', 'Application error notification delivery failed', ['failure_class'=>self::exceptionName($delivery), 'correlation_id'=>$correlation]);
                 return false;
             }

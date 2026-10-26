@@ -21,3 +21,12 @@ metadata is DIST-only: `dist.reference` identifies the canonical source commit,
 expanded member hashes. Installers must verify both archive and member manifests.
 Existing vendor packages, lock entries, SDK discovery state, and application bindings
 must remain unchanged except for this component and reviewed generated metadata.
+
+
+## Error notification contract (1.0.2)
+
+The shared reporter renders a linked project heading, a concise sanitized failure and reason, and any available typed context items. Context is an open list of registered items such as account, module, request, deal, contact, document, rule, order, or payment; unavailable values are omitted. Labels and values are escaped for Telegram HTML, and links must be validated HTTP(S) URLs. Request timestamps are shown only when supplied from the actual record. Unknown operations retain safe context and a correlation code while benign validation, health, and unverified closure noise remain local.
+
+Applications may extend `Leolnid\Common\Reporting\Capture\AbstractLoadedContextObserver` with a fixed `LABELS` catalog. It provides `attachEntity`, `attachEntities`, `attachId`, and `merge` for already-loaded typed objects; it does not fetch entities or call external APIs. The failure refinement hook receives existing metadata and scope while the original two-argument hook remains compatible.
+
+Run the repository fixtures with `php tests/reporting/run.php`. They use a fake transport and synthetic configuration; they do not send notifications or perform business writes.
