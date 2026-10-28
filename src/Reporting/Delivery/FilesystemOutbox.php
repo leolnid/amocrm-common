@@ -51,6 +51,73 @@ class FilesystemOutbox
         } catch (Throwable) {}
         return 60;
     }
+    private static function logDeliveryFailure(Throwable $error, string $outboxPath, int $attempt): void
+    {
+        try {
+            $exceptionClass = get_class($error);
+            foreach (explode('\\', $exceptionClass) as $classPart) {
+                if (!preg_match('/\\A[A-Za-z_][A-Za-z0-9_]{0,63}\\z/D', $classPart)) {
+                    $exceptionClass = 'Throwable';
+                    break;
+                }
+            }
+
+            $status = null;
+            $serviceHost = 'unknown';
+            $cursor = $error;
+            for ($depth = 0; $depth < 5; $depth++) {
+                if ($status === null && method_exists($cursor, 'getResponse')) {
+                    try {
+                        $response = $cursor->getResponse();
+                        if (is_object($response) && method_exists($response, 'getStatusCode')) {
+                            $candidate = $response->getStatusCode();
+                            if (is_int($candidate) && $candidate >= 100 && $candidate <= 599) $status = $candidate;
+                        }
+                    } catch (Throwable) {}
+                }
+                if ($serviceHost === 'unknown' && method_exists($cursor, 'getRequest')) {
+                    try {
+                        $request = $cursor->getRequest();
+                        $uri = is_object($request) && method_exists($request, 'getUri') ? $request->getUri() : null;
+                        $host = is_object($uri) && method_exists($uri, 'getHost') ? strtolower((string) $uri->getHost()) : '';
+                        if ($host === 'api.telegram.org') $serviceHost = 'api.telegram.org';
+                        elseif ($host === 'api.amocrm.ru' || str_ends_with($host, '.amocrm.ru')) $serviceHost = 'amocrm.ru';
+                        elseif ($host !== '') $serviceHost = 'other';
+                    } catch (Throwable) {}
+                }
+                $previous = $cursor->getPrevious();
+                if (!$previous) break;
+                $cursor = $previous;
+            }
+
+            $reason = match (true) {
+                $status === 401 => 'http_401_unauthorized',
+                $status === 403 => 'http_403_forbidden',
+                $status === 404 => 'http_404_not_found',
+                $status === 409 => 'http_409_conflict',
+                $status === 429 => 'http_429_rate_limited',
+                $status !== null && $status >= 500 => 'http_5xx_upstream',
+                $status !== null && $status >= 400 => 'http_4xx_client',
+                str_contains(strtolower($exceptionClass), 'timeout') => 'transport_timeout',
+                str_contains(strtolower($exceptionClass), 'connection') => 'transport_connection',
+                default => 'transport_failure',
+            };
+            $id = basename($outboxPath, '.json');
+            if (!preg_match('/\\A[a-f0-9]{32}\\z/D', $id)) $id = 'unknown';
+            $event = [
+                'event' => 'reporting_outbox_delivery_failed',
+                'envelope_id' => $id,
+                'attempt' => max(1, min(1000000, $attempt)),
+                'exception_class' => $exceptionClass,
+                'http_status' => $status,
+                'service_host' => $serviceHost,
+                'reason_bucket' => $reason,
+            ];
+            @error_log('common_reporting_delivery ' . json_encode($event, JSON_THROW_ON_ERROR));
+        } catch (Throwable) {
+            // Diagnostics must never change outbox retry behavior.
+        }
+    }
     public function put(array $payload, Throwable $error, ?string $receiptPath = null): void
     {
         $dir=$this->directory();
@@ -87,7 +154,7 @@ class FilesystemOutbox
                             catch(Throwable){error_log('Delivered daily report receipt requires review');}
                         }
                     }}
-                catch(Throwable $error){$item['attempts']++;$item['not_before']=time()+self::retryDelay($error);$this->write($path,$item);$pending++;break;}
+                catch(Throwable $error){$item['attempts']++;self::logDeliveryFailure($error,$path,(int)$item['attempts']);$item['not_before']=time()+self::retryDelay($error);$this->write($path,$item);$pending++;break;}
             }
         } finally {flock($lock,LOCK_UN);fclose($lock);}
         return ['sent'=>$sent,'pending'=>$pending,'expired_requires_review'=>$expired,'corrupt_requires_review'=>$corrupt,'interrupted_requires_review'=>$interrupted,'receipt_journal_requires_review'=>$receiptReview];

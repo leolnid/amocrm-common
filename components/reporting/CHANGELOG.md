@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.6
+
+- Record safe per-envelope delivery failure diagnostics (exception class, HTTP status, allowlisted host, reason bucket, attempt and opaque ID) without request details or payloads.
+
 ## 1.0.5
 
 - Correlate confirmed notifications from registered scheduled console child commands with their parent run, without extending correlation to queue jobs or the schedule runner.
