@@ -1,13 +1,13 @@
 {
   "files": {
     "components/reporting/README.md": "52fe10c07ae63d071a454068d7ceb451feeff47d9d7af084f3c51fe0f6c7756c",
-    "components/reporting/composer.json": "edbbf9c6749be1c1880ca79ee860b69f42d1c1f15f97c747666a8c31c969a45c",
+    "components/reporting/composer.json": "f690c3140e3af4f8bf28fad039e4c47c2fe340eb3d36084cf0c1da8b79c14d0b",
     "src/Reporting/Capture/AbstractLoadedContextObserver.php": "247bd2f28f694baf0f5bb088fb1f18c30176f3f98c113ce958a6dd955a4cda3d",
     "src/Reporting/Capture/LaravelErrorOutbox.php": "b8d7107eeb5caac36d1d9e4388b6e3b31c20739e924e0d5f3a7cc304cc63a35d",
     "src/Reporting/Capture/LaravelErrorReporter.php": "b1872698588712fd911e689af9e4a65257378671316be50d54eac9dce4113054",
     "src/Reporting/Capture/LaravelErrorServiceProvider.php": "eec0a1c0bd847cbc73d224830285a42c10eb4b1c18b65784c6c70bd266717fc6",
     "src/Reporting/Capture/LaravelMetadataContext.php": "455b4e0592722695338b323fd0201dc262396e2f1b4daa0cfbc31345d189be6c",
-    "src/Reporting/Capture/LaravelTelegramTransport.php": "3185d736982832359d23ecf3bac954cd41dbd6dea7663c7c6db125aafea78c5f",
+    "src/Reporting/Capture/LaravelTelegramTransport.php": "c8882ae61f6c23cbdde2dac922a02815d9465e169b101693c7a471ba803efc8c",
     "src/Reporting/Capture/LegacyTechnicalHandler.php": "c2d99631b5d26bcfd064ab7f3dcf12e3d5cb2920dd782a9faa86b0631c9cf150",
     "src/Reporting/Capture/LegacyTechnicalLogger.php": "5f3ab519d3cac4b67ac9010f65b3837a6505040f5f7a2ba9be3ab51a5e1955bb",
     "src/Reporting/Capture/ScheduledRunBridge.php": "74d40dbd8183198cf0b962f0e8a18668ea09d423bd65b59a5d519099c468ed99",
@@ -38,5 +38,5 @@
   },
   "package": "leolnid/common-reporting",
   "schema_version": 1,
-  "version": "1.0.8"
+  "version": "1.0.9"
 }

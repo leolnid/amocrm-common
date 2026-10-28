@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.9
+
+- Route Telegram delivery through an explicitly configured HTTPS relay with a request-scoped service credential; preserve the default API path when relay settings are absent.
+- Reject non-HTTPS endpoints and prevent relay credentials from reaching the normalized official Telegram API origin.
+
 ## 1.0.8
 
 - Clarify that HTTP counters represent received requests and job counters represent background execution; distinguish logged action errors from job failures.
