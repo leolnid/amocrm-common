@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.7
+
+- Persist safe outbox delivery diagnostics through the configured Laravel single log channel; retain a fail-open standalone fallback.
+
 ## 1.0.6
 
 - Record safe per-envelope delivery failure diagnostics (exception class, HTTP status, allowlisted host, reason bucket, attempt and opaque ID) without request details or payloads.

@@ -113,6 +113,15 @@ class FilesystemOutbox
                 'service_host' => $serviceHost,
                 'reason_bucket' => $reason,
             ];
+            $message = 'Common reporting outbox delivery failed';
+            if (class_exists(\Illuminate\Support\Facades\Log::class)) {
+                try {
+                    \Illuminate\Support\Facades\Log::channel('single')->warning($message, $event);
+                    return;
+                } catch (Throwable) {
+                    // The notification logger must never interrupt outbox retries.
+                }
+            }
             @error_log('common_reporting_delivery ' . json_encode($event, JSON_THROW_ON_ERROR));
         } catch (Throwable) {
             // Diagnostics must never change outbox retry behavior.

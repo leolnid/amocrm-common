@@ -25,6 +25,25 @@ namespace GuzzleHttp\Psr7 {
     }
 }
 
+namespace Illuminate\Support\Facades {
+    final class Log
+    {
+        public static function channel(string $name): object
+        {
+            if ($name !== 'single') throw new \RuntimeException('Unexpected logger channel');
+            if (($GLOBALS['fail_laravel_logger'] ?? false) === true) throw new \RuntimeException('Synthetic logger failure');
+            return new class {
+                public function warning(string $message, array $context = []): void
+                {
+                    if (isset($context['exception']) && $context['exception'] instanceof \Throwable) throw new \RuntimeException('Exception object must not be logged');
+                    $line = json_encode(['message' => $message, 'context' => $context], JSON_THROW_ON_ERROR) . "\n";
+                    if (file_put_contents($GLOBALS['app_log_path'], $line, FILE_APPEND | LOCK_EX) !== strlen($line)) throw new \RuntimeException('Synthetic persistent logger write failed');
+                }
+            };
+        }
+    }
+}
+
 namespace GuzzleHttp\Exception {
     final class ClientException extends \RuntimeException
     {
@@ -40,6 +59,7 @@ namespace GuzzleHttp\Exception {
 namespace Leolnid\Common\Reporting\Delivery {
     function error_log(string $message): bool
     {
+        $GLOBALS['delivery_error_log_calls'] = ($GLOBALS['delivery_error_log_calls'] ?? 0) + 1;
         if (($GLOBALS['force_delivery_log_failure'] ?? false) === true) throw new \RuntimeException('synthetic logger failure');
         return \error_log($message);
     }
@@ -69,9 +89,12 @@ namespace {
 
     $logPath = tempnam(sys_get_temp_dir(), 'common-outbox-diagnostic-');
     if (!is_string($logPath)) throw new RuntimeException('Could not create local diagnostic fixture log');
+    $appLogPath = tempnam(sys_get_temp_dir(), 'common-outbox-app-log-');
+    if (!is_string($appLogPath)) throw new RuntimeException('Could not create local persistent logger fixture');
+    $GLOBALS['app_log_path'] = $appLogPath;
     $previousLogPath = ini_get('error_log');
     $retryRoot = null;
-    ini_set('error_log', $logPath);
+    ini_set('error_log', '');
 
     try {
         $id = '0123456789abcdef0123456789abcdef';
@@ -83,9 +106,9 @@ namespace {
 
         $method = new \ReflectionMethod(FilesystemOutbox::class, 'logDeliveryFailure');
         $method->invoke(null, $error, $id . '.json', 3);
-        $logged = file_get_contents($logPath);
-        $jsonStart = is_string($logged) ? strpos($logged, '{') : false;
-        $record = $jsonStart === false ? null : json_decode(substr($logged, $jsonStart), true);
+        $logged = file_get_contents($appLogPath);
+        $envelope = is_string($logged) ? json_decode($logged, true) : null;
+        $record = is_array($envelope) ? ($envelope['context'] ?? null) : null;
 
         diagnosticAssert(is_array($record) && ($record['event'] ?? null) === 'reporting_outbox_delivery_failed', 'failure event is recorded');
         diagnosticAssert(($record['envelope_id'] ?? null) === $id && ($record['attempt'] ?? null) === 3, 'opaque envelope id and attempt are correlated');
@@ -94,22 +117,29 @@ namespace {
         diagnosticAssert(($record['service_host'] ?? null) === 'api.telegram.org', 'allowlisted service hostname is retained');
         diagnosticAssert(($record['reason_bucket'] ?? null) === 'http_403_forbidden', 'reason is limited to a safe category');
         diagnosticAssert(!str_contains($logged, $secret) && !str_contains($logged, $uriPath) && !str_contains($logged, 'private response'), 'token, URL path/query and response body are absent');
+        diagnosticAssert(($envelope['message'] ?? null) === 'Common reporting outbox delivery failed' && !isset($record['exception']), 'persistent app logger receives only a safe message and scalar context');
+        diagnosticAssert(ini_get('error_log') === '', 'fixture models CLI diagnostics routed to stderr');
+        diagnosticAssert(($GLOBALS['delivery_error_log_calls'] ?? 0) === 0, 'Laravel logger persists diagnostics without stderr fallback');
 
-        file_put_contents($logPath, '');
+        file_put_contents($appLogPath, '');
         $otherRequest = new \GuzzleHttp\Psr7\RequestFixture('secret.internal.example');
         $otherError = new \GuzzleHttp\Exception\ClientException(new \GuzzleHttp\Psr7\ResponseFixture(403), $otherRequest, 'private URL');
         $method->invoke(null, $otherError, $id . '.json', 4);
-        $otherLogged = file_get_contents($logPath);
-        $otherStart = is_string($otherLogged) ? strpos($otherLogged, '{') : false;
-        $otherRecord = $otherStart === false ? null : json_decode(substr($otherLogged, $otherStart), true);
+        $otherLogged = file_get_contents($appLogPath);
+        $otherEnvelope = is_string($otherLogged) ? json_decode($otherLogged, true) : null;
+        $otherRecord = is_array($otherEnvelope) ? ($otherEnvelope['context'] ?? null) : null;
         diagnosticAssert(is_array($otherRecord) && ($otherRecord['service_host'] ?? null) === 'other' && !str_contains($otherLogged, 'secret.internal.example'), 'unknown hostname is coarse-grained');
 
+        ini_set('error_log', $logPath);
+        $GLOBALS['fail_laravel_logger'] = true;
         $GLOBALS['force_delivery_log_failure'] = true;
         $method->invoke(null, $error, $id . '.json', 5);
+        unset($GLOBALS['fail_laravel_logger']);
         unset($GLOBALS['force_delivery_log_failure']);
+        diagnosticAssert(($GLOBALS['delivery_error_log_calls'] ?? 0) === 1, 'logger failure falls back best-effort without escaping');
 
         $retryIntegration = 'skipped_non_posix';
-        $assertions = 9;
+        $assertions = 13;
         if (function_exists('posix_geteuid')) {
             $retryRoot = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'common-outbox-retry-' . bin2hex(random_bytes(8));
             $outboxDir = $retryRoot . DIRECTORY_SEPARATOR . 'outbox';
@@ -122,6 +152,7 @@ namespace {
             $retryPayload = ['text' => 'unchanged local fixture'];
             file_put_contents($retryPath, json_encode(['payload' => $retryPayload, 'attempts' => 0, 'created_at' => time(), 'not_before' => 0], JSON_THROW_ON_ERROR));
             $GLOBALS['force_delivery_log_failure'] = true;
+            $GLOBALS['fail_laravel_logger'] = true;
             $outbox = new FilesystemOutbox(
                 new FailingOutboxTransport($error),
                 $outboxDir,
@@ -131,6 +162,7 @@ namespace {
                 (int) gmdate('i') % 5,
             );
             $result = $outbox->drain();
+            unset($GLOBALS['fail_laravel_logger']);
             unset($GLOBALS['force_delivery_log_failure']);
             $saved = json_decode((string) file_get_contents($retryPath), true, 512, JSON_THROW_ON_ERROR);
             diagnosticAssert(($result['pending'] ?? null) === 1 && ($result['sent'] ?? null) === 0, 'logger failure does not break transport retry');
@@ -148,6 +180,7 @@ namespace {
     } finally {
         if (is_string($previousLogPath)) ini_set('error_log', $previousLogPath);
         if (is_file($logPath)) unlink($logPath);
+        if (is_file($appLogPath)) unlink($appLogPath);
         if (is_string($retryRoot) && is_dir($retryRoot)) {
             foreach (['outbox', 'daily'] as $name) {
                 $dir = $retryRoot . DIRECTORY_SEPARATOR . $name;
