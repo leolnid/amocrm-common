@@ -55,7 +55,12 @@ abstract class LaravelErrorReporter
     protected function refineContext(?object $context, \Throwable $error): ?object {return $context;}
     /** BC hook for app-owned typed context assembled from already-collected safe metadata. */
     protected function refineContextForFailure(?object $context, \Throwable $error, array $metadata, array $scope): ?object {return $this->refineContext($context,$error);}
-    public function reportFromHandler(\Throwable $error): bool {return $this->report($error,false,($this->context['source']??'')!=='queue');}
+    public function reportFromHandler(\Throwable $error): bool
+    {
+        $wrapper=($this->context['source']??null)==='scheduler'&&($this->context['scheduled_wrapper_failure']??false)===true;
+        try { return $this->report($error,false,($this->context['source']??'')!=='queue'); }
+        finally { if($wrapper){ScheduledRunBridge::finish();$this->clearContext();} }
+    }
     public function report(\Throwable $error, bool $test=false, bool $allowRemote=true): bool
     {
         $business=null;
@@ -63,6 +68,7 @@ abstract class LaravelErrorReporter
             $scope=$this->context;
             if ($this->failedExit!==null && !in_array($scope['source']??null,['queue','scheduler'],true)) $scope+=['source'=>'console','command_exit_code'=>$this->failedExit];
             $metadata=LaravelMetadataContext::collect($error,$scope,$this->definition,$this->consoleSelector(),$test);
+            if(!$test&&($metadata['scheduled_wrapper_failure']??false)===true&&ScheduledRunBridge::isActiveParentId($metadata['scheduled_run_id']??null)&&ScheduledRunBridge::delivered($metadata))$allowRemote=false;
             if (!$test) $business=$this->refineContextForFailure($this->business[$error]??$this->activeBusiness,$error,$metadata,$scope);
             if($business!==null&&(($data=get_object_vars($business))['kind']??null)==='unmapped_loaded_context'&&!is_string($data['operation']??null)){
                 $registered=OperationResolver::resolve($error,(string)config('app_errors.display_name',$this->definition['display_name']),$this->definition['project_url'],$metadata,$this->definition);
@@ -83,10 +89,11 @@ abstract class LaravelErrorReporter
             $healthAction=match ($metadata['scheduled_command']??$metadata['console_command']??'') {'health:check'=>'health_checks','health:queue-check-heartbeat'=>'queue_heartbeat','health:schedule-check-heartbeat'=>'scheduler_heartbeat',default=>null};
             $healthAction=match($metadata['job_class']??'') {'Spatie\\Health\\Jobs\\RunHealthChecksJob'=>'health_checks','Spatie\\Health\\Jobs\\HealthQueueJob'=>'queue_heartbeat',default=>$healthAction};
             if ($healthAction!==null) $health=new HealthCheckIdentity($metadata['project'],$metadata['server'],$healthAction);
-            $result=$this->shared->report($error,$message,$metadata,$allowRemote,$health);$this->lastReceipt=$this->shared->lastReceipt;return $result;
-        } catch (\Throwable) {
+            $result=$this->shared->report($error,$message,$metadata,$allowRemote,$health);$this->lastReceipt=$this->shared->lastReceipt;if($result)ScheduledRunBridge::recordDelivered($metadata);return $result;
+        } catch (\Throwable $failure) {
             // Even a broken adapter retains the original failure locally, without raw exception text.
-            $this->shared->report($error,null,['project'=>$this->definition['project'],'source'=>'console','exception_class'=>'Throwable','observer_context_failed'=>true],false);return false;
+            $failureClass=$failure::class;$parts=explode(chr(92),$failureClass);foreach($parts as $part)if(preg_match('/^[A-Za-z_][A-Za-z0-9_]{0,119}$/D',$part)!==1){$failureClass='Throwable';break;}if(strlen($failureClass)>120)$failureClass='Throwable';
+            $this->shared->report($error,null,['project'=>$this->definition['project'],'source'=>'console','exception_class'=>'Throwable','observer_context_failed'=>true,'observer_failure_class'=>$failureClass],false);return false;
         }
     }
     private function canUseUnknownFallback(array $metadata): bool

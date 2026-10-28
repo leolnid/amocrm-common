@@ -15,7 +15,14 @@ final class ContextAdapter
             $defaults=self::defaultKinds($definition['operations']??[]);
             if (!isset($defaults[$kind]) && !isset($definition['kinds'][$kind])) return $error===null?null:self::fallback($project,$projectUrl,$data,$definition,$error,self::fallbackSpecs($definition),[]);
             $spec=array_replace_recursive($defaults[$kind]??[],$definition['kinds'][$kind]??[]);$action=self::action($data,$spec['action']);$reason=self::reason($data,$spec['reason']);$objects=[];
-            if ($reason->code === 'processing_error' && $error !== null) $reason=FailureClassifier::classify($error,$definition['default_service']??'external');
+            if ($error !== null) {
+                $needsThrowableClassification=in_array($reason->code,['processing_error','internal_error'],true);
+                $typedHttpFailure=in_array($reason->code,['http_error','access_rejected'],true)&&FailureClassifier::hasHttpResponse($error);
+                if($needsThrowableClassification||$typedHttpFailure){
+                    $classified=FailureClassifier::classify($error,$reason->service==='internal'?($definition['default_service']??'external'):$reason->service);
+                    if($needsThrowableClassification||$classified->code!=='processing_error')$reason=$classified;
+                }
+            }
             foreach ($spec['objects']??[] as $object) {
                 if (isset($object['when']) && ($data[$object['when']['field']]??null) !== $object['when']['equals']) continue;
                 if (isset($object['crm_account'])) {

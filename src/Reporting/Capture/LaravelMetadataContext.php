@@ -17,6 +17,8 @@ final class LaravelMetadataContext
         if (!in_array($source,['http','queue','scheduler','console','test'],true)) $source='console';
         $class=$error::class;if (!preg_match('/^[A-Za-z_][A-Za-z0-9_\\\\]{0,200}$/D',$class)) $class='Throwable';
         $out=['project'=>$project,'server'=>$server,'php_version'=>PHP_VERSION,'source'=>$source,'exception_class'=>$class];
+        $runId=$context['scheduled_run_id']??ScheduledRunBridge::inheritedId();if(!$test&&$source==='scheduler'&&is_string($runId)&&preg_match('/^[a-f0-9]{32}$/D',$runId)===1)$out['scheduled_run_id']=$runId;
+        if (!$test && ($context['scheduled_wrapper_failure']??false)===true && $source==='scheduler') $out['scheduled_wrapper_failure']=true;
         if ($test) return $out;
         if ($source==='queue') {
             $job=$context['job_class']??null;

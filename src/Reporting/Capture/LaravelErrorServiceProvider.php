@@ -60,36 +60,47 @@ abstract class LaravelErrorServiceProvider extends ServiceProvider
             $reporter->report($event->exception);
          } catch (Throwable) { error_log('Application event observer unavailable'); } });
         foreach ([JobProcessed::class, Looping::class, \Illuminate\Foundation\Http\Events\RequestHandled::class] as $eventClass) Event::listen($eventClass, function (): void { try { $this->reporter()->clearContext(); $this->reporter()->clearConsoleContext(); } catch (Throwable) { error_log('Application context observer unavailable'); } });
-        Event::listen(ScheduledTaskStarting::class, function (ScheduledTaskStarting $event): void { try { 
-            $this->reporter()->setContext(['source' => 'scheduler', 'scheduled_command' => $this->scheduledCommand((string)($event->task->command??''))]);
+        Event::listen(ScheduledTaskStarting::class, function (ScheduledTaskStarting $event): void { try {
+            $task=$event->task;$command=$this->scheduledCommand((string)($task->command??''));if($command===self::DELIVERY_NAME){ScheduledRunBridge::finish();$runId=null;}else{$runId=ScheduledRunBridge::begin($task);}
+            $context=['source'=>'scheduler','scheduled_command'=>$command];if($runId!==null)$context['scheduled_run_id']=$runId;
+            $this->reporter()->setContext($context);
          } catch (Throwable) { error_log('Application event observer unavailable'); } });
         Event::listen(ScheduledTaskFailed::class, function (ScheduledTaskFailed $event): void { try {
-            if ($this->scheduledCommand((string)($event->task->command??''))===self::DELIVERY_NAME) {error_log('Application error outbox scheduler failed');return;} 
+            if ($this->scheduledCommand((string)($event->task->command??''))===self::DELIVERY_NAME) {error_log('Application error outbox scheduler failed');ScheduledRunBridge::finish($event->task);return;}
             $reporter = $this->reporter();
-            $reporter->setContext(['source' => 'scheduler', 'scheduled_command' => $this->scheduledCommand((string)($event->task->command??''))]);
+            $context=['source'=>'scheduler','scheduled_command'=>$this->scheduledCommand((string)($event->task->command??'')),'scheduled_wrapper_failure'=>true];$runId=ScheduledRunBridge::activeIdFor($event->task);if($runId!==null)$context['scheduled_run_id']=$runId;
+            $reporter->setContext($context);
             $reporter->report($event->exception);
          } catch (Throwable) { error_log('Application event observer unavailable'); } });
         foreach ([ScheduledTaskFinished::class, \Illuminate\Console\Events\ScheduledBackgroundTaskFinished::class] as $finishedClass) Event::listen($finishedClass, function ($event): void { try {
-            if ($this->scheduledCommand((string)($event->task->command??''))===self::DELIVERY_NAME) {if((int)($event->task->exitCode??0)!==0)error_log('Application error outbox requires review');return;} 
+            if ($this->scheduledCommand((string)($event->task->command??''))===self::DELIVERY_NAME) {if((int)($event->task->exitCode??0)!==0)error_log('Application error outbox requires review');ScheduledRunBridge::finish($event->task);$this->reporter()->clearContext();return;}
+            $failed=(int)($event->task->exitCode??0)!==0;
             try {
                 $reporter=$this->reporter();
-                if ((int)($event->task->exitCode??0)!==0) {
+                if ($failed) {
                     $name=$this->scheduledCommand((string)($event->task->command??''));
                     $exit=$event->task->exitCode??null;
                     $valid=is_int($exit)&&$exit>=1&&$exit<=255;
-                    $reporter->setContext(['source'=>'scheduler','scheduled_command'=>$valid?$name:'unknown','scheduled_exit_failure'=>true]+($valid?['command_exit_code'=>$exit]:[]));
+                    $context=['source'=>'scheduler','scheduled_command'=>$valid?$name:'unknown','scheduled_exit_failure'=>true,'scheduled_wrapper_failure'=>true];$runId=ScheduledRunBridge::activeIdFor($event->task);if($runId!==null)$context['scheduled_run_id']=$runId;
+                    $reporter->setContext($context+($valid?['command_exit_code'=>$exit]:[]));
                     $reporter->report(new \RuntimeException());
                 }
-                $reporter->clearContext();
+                // Laravel dispatches ScheduledTaskFinished before it throws for a
+                // non-zero child exit; the resulting ScheduledTaskFailed and
+                // exception-handler callbacks still need this run's receipt marker.
+                if(!$failed)$reporter->clearContext();
             } catch (Throwable) { error_log('Application scheduler observer unavailable'); }
+            finally { if(!$failed)ScheduledRunBridge::finish($event->task); }
          } catch (Throwable) { error_log('Application event observer unavailable'); } });
         Event::listen(\Illuminate\Console\Events\CommandStarting::class, function ($event): void { try {
             if(is_string($event->command??null)) $this->reporter()->consoleStarting($event->command);
         } catch (Throwable) { error_log('Console context observer unavailable'); } });
         Event::listen(\Illuminate\Console\Events\CommandFinished::class, function ($event): void { try {
             if(is_string($event->command??null)&&is_int($event->exitCode??null)) $this->reporter()->consoleFinished($event->command,$event->exitCode);
+            if(($event->command??null)==='schedule:run'){ScheduledRunBridge::finish();$this->reporter()->clearContext();}
         } catch (Throwable) { error_log('Console context observer unavailable'); } });
         Event::listen(\Illuminate\Foundation\Events\Terminating::class, function (): void { try {
+            ScheduledRunBridge::finish();
             $this->reporter()->clearConsoleContext();
         } catch (Throwable) { error_log('Console context observer unavailable'); } });
     }

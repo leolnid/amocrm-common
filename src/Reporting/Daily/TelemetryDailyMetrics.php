@@ -69,8 +69,8 @@ class TelemetryDailyMetrics
   if(!$businessReliable||in_array($coverage['state'],['unknown','unavailable'],true))$counts=array_fill_keys(array_keys($counts),null);
   $errorPath=(string)config('logging.channels.single.path');$sourceConfirmed=config('logging.channels.single.driver')==='single'&&!config('logging.channels.single.tap')&&!config('logging.channels.single.formatter');
   $errorCoverage=$this->coverage(config('app_reports.error_coverage_from_utc'),$start,$end,is_file($errorPath)&&$sourceConfirmed);
-  $errorSeen=[];$tests=0;$errorInvalid=0;$firstLog=null;
-  $errorComplete=$this->scan($errorPath,function($line)use(&$errorSeen,&$tests,&$errorInvalid,&$firstLog,$start,$end){
+  $errorSeen=[];$errorRaw=0;$tests=0;$errorInvalid=0;$firstLog=null;
+  $errorComplete=$this->scan($errorPath,function($line)use(&$errorSeen,&$errorRaw,&$tests,&$errorInvalid,&$firstLog,$start,$end){
    if($firstLog===null&&preg_match('/^\[([0-9-]{10} [0-9:]{8})\]/',$line,$stamp)){try{$firstLog=new DateTimeImmutable($stamp[1],new DateTimeZone((string)config('app.timezone','UTC')));}catch(Throwable){}}
    if(!preg_match('/"event_kind"\s*:\s*"application_error"/',$line))return;
    if(!preg_match('/(\{.*\})\s*$/',$line,$match)){$errorInvalid++;return;}
@@ -78,11 +78,25 @@ class TelemetryDailyMetrics
    try {$at=new DateTimeImmutable($row['occurred_at_utc']);}catch(Throwable){$errorInvalid++;return;}
    if($at<$start||$at>=$end)return;
    if($row['is_test']??false){$tests++;return;}
-   if(count($errorSeen)<100000)$errorSeen[$row['correlation_id']]=true;else $errorInvalid++;
+   $id=$row['correlation_id'];
+   if(!is_string($id)||!preg_match('/^[a-f0-9]{16,32}$/D',$id)){$errorInvalid++;return;}
+   $errorRaw++;
+   if(!isset($errorSeen[$id])){
+    if(count($errorSeen)>=100000){$errorInvalid++;return;}
+    $class=$row['exception_class']??null;
+    $category='unknown';
+    if(is_string($class)&&preg_match('/^[A-Za-z_][A-Za-z0-9_\\\\]{0,200}$/D',$class)){
+     $category=match(true){str_starts_with($class,'AmoCRM\\')=>'amocrm',str_starts_with($class,'Illuminate\\Http\\Client\\')||str_starts_with($class,'GuzzleHttp\\')||str_starts_with($class,'Symfony\\Component\\HttpClient\\')=>'http_client',$class==='PDOException'||str_starts_with($class,'Illuminate\\Database\\')=>'database',default=>'application'};
+    }
+    $source=$row['source']??null;if(!in_array($source,['http','queue','scheduler','console','test'],true))$source='unknown';
+    $errorSeen[$id]=['category'=>$category,'source'=>$source];
+   }
   });
   $coveredStart=$errorCoverage['from_utc']===null?$start:max($start,new DateTimeImmutable($errorCoverage['from_utc']));
   $errorReliable=$errorComplete&&!$errorInvalid&&$firstLog!==null&&$firstLog<=$coveredStart;
   if(!$errorReliable&&$errorCoverage['state']==='complete')$errorCoverage['state']='partial';
-  return ['business_cli'=>['coverage'=>$cliCoverage,'expected_units'=>array_values(array_unique($cliCatalog)),'observed_counts'=>$cliCounts,'counts'=>$cliCoverage['state']==='complete'?$cliCounts:null,'last_successful_mail_check_utc'=>$lastMail,'units'=>['batch'=>'technical named command runs','mail_poll'=>'mailbox checks, not incoming requests or number of emails']],'source'=>'sanitized lifecycle telemetry','coverage'=>$coverage,'counts'=>$counts,'observed_counts'=>$observed,'pending_now'=>null,'last_genuine_activity_utc'=>$last,'segment_issues'=>$issues,'heartbeat_resolution_seconds'=>60,'heartbeat_coverage'=>['period_minutes'=>$periodMinutes,'expected_minutes'=>$heartbeatExpected,'observed_minutes'=>$heartbeatKnown?$heartbeatObserved:null,'missing_minutes'=>$heartbeatKnown?$heartbeatExpected-$heartbeatObserved:null,'unobserved_before_epoch_minutes'=>$unobservedBeforeEpoch,'unconfirmed_minutes'=>$heartbeatKnown?max(0,$periodMinutes-$heartbeatObserved):null,'observation_from_utc'=>$observationStart->setTimezone(new DateTimeZone('UTC'))->format('c'),'loss_ledger_epoch_utc'=>$lossEpoch?->setTimezone(new DateTimeZone('UTC'))->format('c')],'telemetry_observation_reliable'=>$observationReliable&&$invalid===0&&$lossZeroKnownAll,'telemetry_invalid_records'=>$invalid,'telemetry_write_losses'=>$losses,'telemetry_loss_coverage'=>$lossProof,'errors'=>['source'=>'logging.channels.single','source_driver_confirmed'=>$sourceConfirmed,'coverage'=>$errorCoverage,'count'=>!$errorReliable||in_array($errorCoverage['state'],['unknown','unavailable'],true)?null:count($errorSeen),'observed_count'=>count($errorSeen),'invalid_records'=>$errorInvalid,'known_tests_excluded'=>$tests]];
+  $errorCategories=[];$errorSources=[];foreach($errorSeen as $row){$errorCategories[$row['category']]=($errorCategories[$row['category']]??0)+1;$errorSources[$row['source']]=($errorSources[$row['source']]??0)+1;}
+  ksort($errorCategories);ksort($errorSources);
+  return ['business_cli'=>['coverage'=>$cliCoverage,'expected_units'=>array_values(array_unique($cliCatalog)),'observed_counts'=>$cliCounts,'counts'=>$cliCoverage['state']==='complete'?$cliCounts:null,'last_successful_mail_check_utc'=>$lastMail,'units'=>['batch'=>'technical named command runs','mail_poll'=>'mailbox checks, not incoming requests or number of emails']],'source'=>'sanitized lifecycle telemetry','coverage'=>$coverage,'counts'=>$counts,'observed_counts'=>$observed,'pending_now'=>null,'last_genuine_activity_utc'=>$last,'segment_issues'=>$issues,'heartbeat_resolution_seconds'=>60,'heartbeat_coverage'=>['period_minutes'=>$periodMinutes,'expected_minutes'=>$heartbeatExpected,'observed_minutes'=>$heartbeatKnown?$heartbeatObserved:null,'missing_minutes'=>$heartbeatKnown?$heartbeatExpected-$heartbeatObserved:null,'unobserved_before_epoch_minutes'=>$unobservedBeforeEpoch,'unconfirmed_minutes'=>$heartbeatKnown?max(0,$periodMinutes-$heartbeatObserved):null,'observation_from_utc'=>$observationStart->setTimezone(new DateTimeZone('UTC'))->format('c'),'loss_ledger_epoch_utc'=>$lossEpoch?->setTimezone(new DateTimeZone('UTC'))->format('c')],'telemetry_observation_reliable'=>$observationReliable&&$invalid===0&&$lossZeroKnownAll,'telemetry_invalid_records'=>$invalid,'telemetry_write_losses'=>$losses,'telemetry_loss_coverage'=>$lossProof,'errors'=>['source'=>'logging.channels.single','source_driver_confirmed'=>$sourceConfirmed,'coverage'=>$errorCoverage,'count'=>!$errorReliable||in_array($errorCoverage['state'],['unknown','unavailable'],true)?null:count($errorSeen),'observed_count'=>count($errorSeen),'count_unit'=>'unique_correlation_ids','observed_raw_records'=>$errorRaw,'observed_duplicate_records'=>max(0,$errorRaw-count($errorSeen)),'observed_category_counts'=>$errorCategories,'observed_source_counts'=>$errorSources,'invalid_records'=>$errorInvalid,'known_tests_excluded'=>$tests]];
  }
 }
