@@ -46,7 +46,7 @@ final class SchedulerFixtureCache
 final class SchedulerFixtureLogger
 {
     public function channel(string $name): self{return $this;}
-    public function log(string $level,string $message,array $context=[]): void{SchedulerFixtureRuntime::$cache?->put('fixture:last_log',['level'=>$level,'message'=>$message,'reason_code'=>$context['reason_code']??null,'event_kind'=>$context['event_kind']??null,'exception_class'=>$context['exception_class']??null,'observer_failure_class'=>$context['observer_failure_class']??null],600);}
+    public function log(string $level,string $message,array $context=[]): void{$records=SchedulerFixtureRuntime::$cache?->get('fixture:logs',[])??[];$records[]=['pid'=>getmypid(),'level'=>$level,'source'=>$context['source']??null,'console_command'=>$context['console_command']??null,'scheduled_run_id'=>$context['scheduled_run_id']??null,'reason_code'=>$context['reason_code']??null,'event_kind'=>$context['event_kind']??null,'exception_class'=>$context['exception_class']??null,'observer_failure_class'=>$context['observer_failure_class']??null];SchedulerFixtureRuntime::$cache?->put('fixture:logs',$records,600);}
 }
 final class SchedulerFixtureTransport implements Leolnid\Common\Reporting\Delivery\NotificationTransport
 {
@@ -67,7 +67,7 @@ final class SchedulerFixtureOutbox
 }
 final class SchedulerFixtureDefinition
 {
-    public const VALUE=['project'=>'scheduler-fixture','display_name'=>'Scheduler fixture','project_url'=>'https://bp.amorenat.ru/admin','operations'=>['command:fixture:run'=>'Локальная проверка'],'default_service'=>'internal'];
+    public const VALUE=['project'=>'scheduler-fixture','display_name'=>'Scheduler fixture','project_url'=>'https://bp.amorenat.ru/admin','operations'=>['command:fixture:run'=>'Локальная проверка','command:schedule:run'=>'Запуск расписания'],'default_service'=>'internal'];
 }
 final class SchedulerFixtureReporter extends Leolnid\Common\Reporting\Capture\LaravelErrorReporter
 {
@@ -115,8 +115,11 @@ if(getenv('SCHEDULER_FIXTURE_CHILD')==='1'){
     if($root==='')exit(31);
     SchedulerFixtureRuntime::boot($root);
     SchedulerFixtureRuntime::$app->instance(Leolnid\Common\Reporting\Delivery\NotificationTransport::class,new SchedulerFixtureTransport());
+    $childProvider=new SchedulerFixtureProvider(SchedulerFixtureRuntime::$app);$childProvider->register();$childProvider->boot();
+    $childInput=new Symfony\Component\Console\Input\ArrayInput([],new Symfony\Component\Console\Input\InputDefinition());
+    $childOutput=new Symfony\Component\Console\Output\BufferedOutput();
+    SchedulerFixtureRuntime::$app->make('events')->dispatch(new Illuminate\Console\Events\CommandStarting('fixture:run',$childInput,$childOutput));
     $reporter=SchedulerFixtureRuntime::$app->make(SchedulerFixtureReporter::class);
-    $reporter->setContext(['source'=>'scheduler','scheduled_command'=>'fixture:run']);
     if(getenv('SCHEDULER_FIXTURE_CHILD_MODE')!=='silent'){$ok=$reporter->report(new RuntimeException('private child failure body token=fixture-secret'));SchedulerFixtureRuntime::$cache->put('fixture:child_result',['ok'=>$ok,'ready'=>$reporter->ready(),'receipt'=>$reporter->lastReceipt,'run_id'=>getenv('LEOLNID_REPORTING_SCHEDULE_RUN_ID')?:null],600);}
     exit(1);
 }
@@ -131,6 +134,10 @@ schedulerFixtureEnv('SCHEDULER_FIXTURE_AUTOLOAD',$autoload);
 SchedulerFixtureRuntime::boot($root);
 $app=SchedulerFixtureRuntime::$app;$dispatcher=$app->make('events');$handler=new SchedulerFixtureHandler();$app->instance(Illuminate\Contracts\Debug\ExceptionHandler::class,$handler);
 $provider=new SchedulerFixtureProvider($app);$provider->register();$provider->boot();$app->make(Illuminate\Contracts\Debug\ExceptionHandler::class);
+$correlationProbe='0123456789abcdef0123456789abcdef';
+$scheduleRunMetadata=Leolnid\Common\Reporting\Capture\LaravelMetadataContext::collect(new RuntimeException(),['source'=>'console','scheduled_run_id'=>$correlationProbe],SchedulerFixtureDefinition::VALUE,'schedule:run',false);
+$queueMetadata=Leolnid\Common\Reporting\Capture\LaravelMetadataContext::collect(new RuntimeException(),['source'=>'queue','scheduled_run_id'=>$correlationProbe,'job_class'=>'App\\Jobs\\Fixture'],SchedulerFixtureDefinition::VALUE,null,false);
+if(isset($scheduleRunMetadata['scheduled_run_id'])||isset($queueMetadata['scheduled_run_id']))throw new RuntimeException('run correlation escaped to scheduler wrapper or queue context');
 $mutex=new SchedulerFixtureMutex();$runner=new SchedulerFixtureRunCommand();
 $run=function(string $mode,bool $throwOnCache=false)use($root,$artisan,$mutex,$runner,$app,$dispatcher,$handler):void{
     schedulerFixtureEnv('SCHEDULER_FIXTURE_CHILD_MODE',$mode);schedulerFixtureEnv('SCHEDULER_FIXTURE_CACHE_THROW',$throwOnCache?'1':'0');
@@ -141,6 +148,9 @@ $run=function(string $mode,bool $throwOnCache=false)use($root,$artisan,$mutex,$r
 };
 $run('deliver');
 $sent=(int)SchedulerFixtureRuntime::$cache->get('fixture:sent',0);if($sent!==1)throw new RuntimeException('child receipt bridge did not suppress the scheduler wrapper');
+$childLogs=array_values(array_filter(SchedulerFixtureRuntime::$cache->get('fixture:logs',[]),static fn(array $row):bool=>($row['pid']??null)!==getmypid()&&($row['source']??null)==='console'));
+$firstChildId=SchedulerFixtureRuntime::$cache->get('fixture:child_ids',[])[0]??null;
+if($childLogs===[]||($childLogs[0]['console_command']??null)!=='fixture:run'||($childLogs[0]['scheduled_run_id']??null)!==$firstChildId||!is_string($firstChildId)||preg_match('/^[a-f0-9]{32}$/D',$firstChildId)!==1)throw new RuntimeException('real console child command was not correlated to its scheduled run');
 $run('throw');$sent2=(int)SchedulerFixtureRuntime::$cache->get('fixture:sent',0);$outbox=(int)SchedulerFixtureRuntime::$cache->get('fixture:outbox',0);if($sent2!==2||$outbox!==1)throw new RuntimeException('child outbox did not leave the parent alert enabled');
 $run('silent');if((int)SchedulerFixtureRuntime::$cache->get('fixture:sent',0)!==3)throw new RuntimeException('missing child detail did not produce parent failure alert');
 $run('deliver',true);$sent=(int)SchedulerFixtureRuntime::$cache->get('fixture:sent',0);if($sent!==5)throw new RuntimeException('marker cache failure did not fail open');
@@ -149,4 +159,4 @@ if((int)SchedulerFixtureRuntime::$cache->get('fixture:sent',0)!==7)throw new Run
 $handler->skip=true;$run('silent');$stale=getenv('LEOLNID_REPORTING_SCHEDULE_RUN_ID');if(!is_string($stale)||preg_match('/^[a-f0-9]{32}$/D',$stale)!==1)throw new RuntimeException('failed handler fixture did not leave a pending run for recovery');
 $backgroundTask=(object)['runInBackground'=>true];if(Leolnid\Common\Reporting\Capture\ScheduledRunBridge::begin($backgroundTask)!==null||Leolnid\Common\Reporting\Capture\ScheduledRunBridge::activeId()!==null||getenv('LEOLNID_REPORTING_SCHEDULE_RUN_ID')!==false)throw new RuntimeException('background task inherited stale foreground correlation state');
 $handler->skip=false;$run('deliver');$ids=SchedulerFixtureRuntime::$cache->get('fixture:child_ids',[]);$tail=array_slice($ids,-1);if(count($tail)!==1||$tail[0]===$stale||(int)SchedulerFixtureRuntime::$cache->get('fixture:sent',0)!==9)throw new RuntimeException('a stale run ID crossed into the next task');
-echo json_encode(['status'=>'PASS','framework'=>'Laravel ScheduleRunCommand + Event','candidate_source_loaded'=>true,'scenarios'=>['child_delivery_suppresses_parent_wrapper','outbox_pending_keeps_parent_alert','no_child_delivery_keeps_parent_alert','marker_cache_failure_fails_open','distinct_runs_are_not_suppressed','stale_handler_state_is_cleared_before_next_task','background_start_clears_stale_foreground_bridge'],'network_requests'=>0,'business_actions'=>0]);
+echo json_encode(['status'=>'PASS','framework'=>'Laravel ScheduleRunCommand + console CommandStarting event','candidate_source_loaded'=>true,'scenarios'=>['console_child_delivery_suppresses_parent_wrapper','outbox_pending_keeps_parent_alert','no_child_delivery_keeps_parent_alert','marker_cache_failure_fails_open','distinct_runs_are_not_suppressed','stale_handler_state_is_cleared_before_next_task','background_start_clears_stale_foreground_bridge','schedule_run_and_queue_do_not_inherit_child_correlation'],'network_requests'=>0,'business_actions'=>0]);

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.5
+
+- Correlate confirmed notifications from registered scheduled console child commands with their parent run, without extending correlation to queue jobs or the schedule runner.
+- Retain validated upstream host and HTTP status in structured error metadata without request URLs or response bodies.
+
 ## 1.0.4
 
 - Classify the SDK's fixed amoCRM token-parse failure without exposing token details.

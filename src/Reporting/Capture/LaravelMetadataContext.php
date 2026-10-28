@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace Leolnid\Common\Reporting\Capture;
-use Leolnid\Common\Reporting\Errors\{ErrorMessage,ErrorObject};
+use Leolnid\Common\Reporting\Errors\{ErrorMessage,ErrorObject,ErrorReason};
 final class LaravelMetadataContext
 {
     public static function collect(\Throwable $error, array $context, array $definition, ?string $consoleCommand, bool $test): array
@@ -17,7 +17,10 @@ final class LaravelMetadataContext
         if (!in_array($source,['http','queue','scheduler','console','test'],true)) $source='console';
         $class=$error::class;if (!preg_match('/^[A-Za-z_][A-Za-z0-9_\\\\]{0,200}$/D',$class)) $class='Throwable';
         $out=['project'=>$project,'server'=>$server,'php_version'=>PHP_VERSION,'source'=>$source,'exception_class'=>$class];
-        $runId=$context['scheduled_run_id']??ScheduledRunBridge::inheritedId();if(!$test&&$source==='scheduler'&&is_string($runId)&&preg_match('/^[a-f0-9]{32}$/D',$runId)===1)$out['scheduled_run_id']=$runId;
+        $resolvedConsole=$source==='console'?self::command($consoleCommand,$definition):null;
+        $runId=$context['scheduled_run_id']??ScheduledRunBridge::inheritedId();
+        $correlatableConsole=$source==='console'&&$resolvedConsole!==null&&$resolvedConsole!=='unknown'&&!in_array($resolvedConsole,['schedule:run','schedule:work'],true);
+        if(!$test&&($source==='scheduler'||$correlatableConsole)&&is_string($runId)&&preg_match('/^[a-f0-9]{32}$/D',$runId)===1)$out['scheduled_run_id']=$runId;
         if (!$test && ($context['scheduled_wrapper_failure']??false)===true && $source==='scheduler') $out['scheduled_wrapper_failure']=true;
         if ($test) return $out;
         if ($source==='queue') {
@@ -27,7 +30,7 @@ final class LaravelMetadataContext
             $command=$context['scheduled_command']??null;$out['scheduled_command']=self::command($command,$definition);
             $exit=$context['command_exit_code']??null;if (is_int($exit)&&$exit>=1&&$exit<=255) $out['command_exit_code']=$exit;
         } elseif ($source==='console') {
-            $out['console_command']=self::command($consoleCommand,$definition);
+            $out['console_command']=$resolvedConsole??'unknown';
             $exit=$context['command_exit_code']??null;if (is_int($exit)&&$exit>=1&&$exit<=255) $out['command_exit_code']=$exit;
         } elseif ($source==='http' && is_object($route)) {
             try {
@@ -44,6 +47,7 @@ final class LaravelMetadataContext
     {
         if ($message!==null) $metadata+=['business_action'=>$message->failure->code,'reason_code'=>$message->reason->code,'service_code'=>$message->reason->service];
         if ($message?->reason->httpStatus!==null) $metadata['http_status']=$message->reason->httpStatus;
+        if (is_string($message?->reason->upstreamHost)&&ErrorReason::isUpstreamHost($message->reason->upstreamHost)) $metadata['upstream_host']=$message->reason->upstreamHost;
         if ($context===null) return $metadata;
         $data=get_object_vars($context);
         foreach (['entityId'=>'entity_id','moduleId'=>'module_id','accountId'=>'account_id'] as $field=>$key) {
