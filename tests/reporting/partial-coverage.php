@@ -125,13 +125,41 @@ $windowMetrics=[
 $windowText=CompactDailyFormatter::render('Neftekamsk',['date'=>'2026-10-27','metrics'=>$windowMetrics,'database_available'=>false,'public_health'=>['state'=>'baseline_match']]);
 check(str_contains($windowText,'Период: 00:25–24:00 MSK; первые 25 мин. не учтены; итог за сутки неизвестен.'),'25-minute start is a concise local-time interval with unknown daily total');
 check(str_contains($windowText,'HTTP-запросы: 64 · ответы 4xx/5xx: 0'),'HTTP counts are not called completed business work');
-check(str_contains($windowText,'Задачи: 64 завершено, 0 с ошибкой'),'job counts are reported separately from HTTP');
+check(str_contains($windowText,'Фоновые задания: завершено 64, ошибок выполнения 0'),'job counts are reported separately from HTTP');
 check(str_contains($windowText,'Сайт отвечает штатно'),'website baseline does not claim whole business health');
 check(!str_contains($windowText,'наблюдалось 64')&&!str_contains($windowText,'не менее 0'),'period-level partial wording avoids repeated observed labels and zero lower bounds');
 $fullMetrics=$windowMetrics;$fullMetrics['coverage']=['state'=>'complete'];$fullMetrics['counts']=['accepted'=>64,'rejected'=>0,'processed'=>64,'failed'=>0];$fullMetrics['http_counts']=['received'=>64,'4xx'=>0,'5xx'=>0];
 $fullText=CompactDailyFormatter::render('Neftekamsk',['date'=>'2026-10-27','metrics'=>$fullMetrics,'database_available'=>false,'public_health'=>['state'=>'baseline_match']]);
 check(str_contains($fullText,'HTTP-запросы: 64 · ответы 4xx/5xx: 0'),'full period counts are exact without observed qualifiers');
 check(!str_contains($fullText,'итог за сутки неизвестен'),'full coverage is not marked partial');
+
+$nefteMetrics=[
+ 'coverage'=>['state'=>'partial','from_utc'=>'2026-10-25T01:47:00+00:00'],
+ 'counts'=>['accepted'=>null,'rejected'=>null,'processed'=>null,'failed'=>null],
+ 'observed_counts'=>['accepted'=>64,'rejected'=>0,'processed'=>64,'failed'=>0],
+ 'unit_definitions'=>['accepted/rejected'=>'business HTTP requests','processed/failed'=>'final technical whitelisted job UUIDs; not business operations completed'],
+ 'classification_coverage'=>['state'=>'complete','gap_days'=>[]],
+ 'segment_issues'=>[],'telemetry_observation_reliable'=>true,'telemetry_invalid_records'=>0,'telemetry_write_losses'=>0,
+ 'telemetry_loss_coverage'=>['fully_classified'=>false,'epoch_utc'=>'2026-10-25T21:24:22+00:00'],
+ 'heartbeat_coverage'=>['period_minutes'=>1440,'expected_minutes'=>1415,'observed_minutes'=>1415,'missing_minutes'=>0,'unobserved_before_epoch_minutes'=>25,'observation_from_utc'=>'2026-10-25T21:24:22+00:00'],
+ 'errors'=>['coverage'=>['state'=>'complete'],'count'=>18,'observed_count'=>18,'count_unit'=>'unique_correlation_ids'],
+ 'pending_kind'=>'queue','pending_now'=>null,
+];
+$nefteText=CompactDailyFormatter::render('База цветов — Нефтекамск',['date'=>'2026-10-26','metrics'=>$nefteMetrics,'public_health'=>['state'=>'unknown']]);
+check(str_contains($nefteText,'Получено запросов: 64 · ответы 4xx/5xx: 0'),'accepted/rejected counters are labelled as received requests');
+check(!str_contains($nefteText,'Обработано запросов:'),'request reception is not described as processing');
+check(str_contains($nefteText,'Фоновые задания: завершено 64, ошибок выполнения 0'),'technical job lifecycle counts have an explicit label');
+check(str_contains($nefteText,'В журнале: 18 событий ошибок'),'error log events have a distinct unit and line');
+check(str_contains($nefteText,'Завершённое задание может содержать ошибки отдельных действий.'),'logged errors are not implied to be failed jobs');
+check(str_contains($nefteText,'Сбор: 1415/1440 мин.; итог за сутки неизвестен.'),'partial coverage is explicit for the frozen Neftekamksk sample');
+check(!str_contains($nefteText,'Очередь сейчас:')&&!str_contains($nefteText,'Очередь сейчас: 0'),'unavailable queue state does not become a zero');
+check(str_contains($nefteText,'Доступность сайта не проверялась'),'unknown site state is not presented as a health claim');
+$nefteMetrics['observed_counts']['failed']=1;
+$nefteFailureText=CompactDailyFormatter::render('База цветов — Нефтекамск',['date'=>'2026-10-26','metrics'=>$nefteMetrics]);
+check(!str_contains($nefteFailureText,'Завершённое задание может содержать'),'separation note is omitted when a job failure is already counted');
+$nefteMetrics['observed_counts']['failed']=null;
+$nefteUnknownFailureText=CompactDailyFormatter::render('База цветов — Нефтекамск',['date'=>'2026-10-26','metrics'=>$nefteMetrics]);
+check(!str_contains($nefteUnknownFailureText,'Завершённое задание может содержать'),'separation note requires a known zero job-failure count');
 
 $stable=collectFixture('gap5');
 check($stable['metrics']['telemetry_observation_reliable']===true,'stable scanned files and classified zero loss prove observation');

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.8
+
+- Clarify that HTTP counters represent received requests and job counters represent background execution; distinguish logged action errors from job failures.
+
 ## 1.0.7
 
 - Persist safe outbox delivery diagnostics through the configured Laravel single log channel; retain a fail-open standalone fallback.

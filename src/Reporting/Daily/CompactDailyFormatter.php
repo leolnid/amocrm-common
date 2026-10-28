@@ -132,8 +132,10 @@ final class CompactDailyFormatter
             }
             if(!$valid($requests)&&!$valid($responses)&&!$valid($processed)&&!$valid($failed)&&!(is_int($errorValue)&&$errorValue>0))return self::withCli(implode("\n",[$header,'Статистика пока недоступна. '.$note,$health,self::errorLine($m['errors']??[])]),$m);
             $errorLine=self::errorLine($m['errors']??[]);
-            $requestLine=($legacyExit&&!$hasHttp&&!$hasReceivedCounter?'Обработано запросов: ':'HTTP-запросы: ').$lower($requests).' · ответы 4xx/5xx: '.$lower($responses);
-            $lines=[$header,$note,$requestLine,'Задачи: '.$lower($processed).' завершено, '.$lower($failed).' с ошибкой',$errorLine];
+            $requestLine=($legacyExit&&!$hasHttp&&!$hasReceivedCounter?'Получено запросов: ':'HTTP-запросы: ').$lower($requests).' · ответы 4xx/5xx: '.$lower($responses);
+            $lines=[$header,$note,$requestLine,'Фоновые задания: завершено '.$lower($processed).', ошибок выполнения '.$lower($failed),$errorLine];
+            $jobErrorNote=self::jobErrorSeparationNote($m,$failed);
+            if($jobErrorNote!==null)$lines[]=$jobErrorNote;
             if(($m['pending_kind']??'')==='queue'&&is_int($m['pending_now']??null)&&$m['pending_now']>=0)$lines[]='Очередь сейчас: '.$m['pending_now'];
             $lines[]=$health;
             return self::withCli(implode("\n",$lines),$m);
@@ -146,10 +148,13 @@ final class CompactDailyFormatter
         $requests=$hasHttp?$h['received']:($hasReceivedCounter?$c['received']:($legacyExit?$sum($c['accepted']??null,$c['rejected']??null):null));
         $responseErrors=$hasHttp?$sum($h['4xx']??null,$h['5xx']??null):($hasReceivedCounter||$legacyExit?($c['rejected']??null):null);
         $number=static fn($value)=>$n($value);
-        $requestLabel=$legacyExit&&!$hasHttp&&!$hasReceivedCounter?'Обработано запросов: ':'HTTP-запросы: ';
+        $requestLabel=$legacyExit&&!$hasHttp&&!$hasReceivedCounter?'Получено запросов: ':'HTTP-запросы: ';
+        $failed=$c['failed']??null;
         $lines=[$header,$requestLabel.$number($requests).' · ответы 4xx/5xx: '.$number($responseErrors),
-            'Задачи: '.$number($c['processed']??null).' завершено, '.$number($c['failed']??null).' с ошибкой',
+            'Фоновые задания: завершено '.$number($c['processed']??null).', ошибок выполнения '.$number($failed),
             $health,self::errorLine($m['errors']??[])];
+        $jobErrorNote=self::jobErrorSeparationNote($m,$failed);
+        if($jobErrorNote!==null)$lines[]=$jobErrorNote;
         if(($m['pending_kind']??'')==='queue'&&is_int($m['pending_now']??null)&&$m['pending_now']>=0)$lines[]='Очередь сейчас: '.$m['pending_now'];
         if($onboarding){$startText='Период: '.$from->setTimezone(new DateTimeZone('Europe/Moscow'))->format('H:i').'–24:00 MSK';$before=$m['heartbeat_coverage']['unobserved_before_epoch_minutes']??null;if(is_int($before)&&$before>0)$startText.='; первые '.$before.' мин. не учтены';$lines[]=$startText.'; итог за сутки неизвестен.';}
         return self::withCli(implode("\n",$lines),$m);
@@ -193,5 +198,14 @@ final class CompactDailyFormatter
         if($parts)$text.="\nКатегории журнала: ".implode(', ',$parts);
         if(!$complete&&!str_contains($text,'недостаточно'))$text.="\nПолный итог по журналу неизвестен.";
         return $text;
+    }
+
+    private static function jobErrorSeparationNote(array $metrics,mixed $failed): ?string
+    {
+        $errorCoverage=($metrics['errors']['coverage']['state']??'unknown')==='complete';
+        $errorCount=$errorCoverage?($metrics['errors']['count']??null):($metrics['errors']['observed_count']??null);
+        return is_int($failed)&&$failed===0&&is_int($errorCount)&&$errorCount>0
+            ?'Завершённое задание может содержать ошибки отдельных действий.'
+            :null;
     }
 }

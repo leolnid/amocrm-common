@@ -1,7 +1,7 @@
 {
   "name": "leolnid/common-reporting",
   "description": "Opt-in shared reporting component from amocrm-common",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "type": "library",
   "license": "proprietary",
   "require": {
