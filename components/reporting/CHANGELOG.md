@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.10
+
+- Read the technical-reporting Telegram relay from the isolated `app_errors.telegram` config namespace before the legacy service keys, so native Laravel Telegram SDK configuration is not redirected.
+- Keep legacy service-key fallback for existing deployments and retain the HTTPS, origin, and request-scoped credential safeguards.
+
 ## 1.0.9
 
 - Route Telegram delivery through an explicitly configured HTTPS relay with a request-scoped service credential; preserve the default API path when relay settings are absent.

@@ -15,6 +15,14 @@ are performed by observers. Delivery uses the application's existing SDK through
 explicit transport port. Daily reports keep HTTP requests, technical job executions,
 module runs, and optional console activity as distinct units.
 
+Technical Telegram delivery reads its relay endpoint and service credential from
+`app_errors.telegram.base_uri` and `app_errors.telegram.relay_token`. This namespace
+is intentionally separate from native Telegram SDK and notification-channel settings.
+The former `services.telegram-bot-api.base_uri` and
+`services.telegram-bot-api.relay_token` values remain a compatibility fallback. The
+service credential is sent only to a validated HTTPS relay origin, never to the
+official Telegram API host.
+
 Each release uses a full-commit tag and a deterministic ZIP_STORED archive. Composer
 metadata is DIST-only: `dist.reference` identifies the canonical source commit,
 `dist.shasum` checks SHA1, and the independent release manifest seals SHA256 and the

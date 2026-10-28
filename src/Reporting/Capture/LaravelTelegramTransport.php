@@ -19,14 +19,17 @@ abstract class LaravelTelegramTransport implements NotificationTransport
         if (!is_string($sdk)||$sdk===''||!is_string($http)||$http==='') throw new \LogicException('Explicit existing Telegram SDK adapter required');
         // Match the app's established Telegram relay config contract. Reading
         // Laravel config (rather than env()) also works with cached config.
-        $apiBaseUri=config('services.telegram-bot-api.base_uri');
+        // Prefer the reporting-only namespace so configuring this transport
+        // cannot redirect Laravel's native Telegram SDK or notification channel.
+        // Keep the previous services key as a compatibility fallback.
+        $apiBaseUri=config('app_errors.telegram.base_uri') ?? config('services.telegram-bot-api.base_uri');
         if ($apiBaseUri!==null && (!is_string($apiBaseUri) || $apiBaseUri==='')) throw new \LogicException('Invalid Telegram API base URI configuration');
         $baseParts=null;
         if (is_string($apiBaseUri)) {
             $baseParts=parse_url($apiBaseUri);
             if (!is_array($baseParts) || strtolower((string)($baseParts['scheme']??''))!=='https' || empty($baseParts['host']) || isset($baseParts['user']) || isset($baseParts['pass']) || isset($baseParts['query']) || isset($baseParts['fragment'])) throw new \LogicException('Invalid Telegram HTTPS base URI configuration');
         }
-        $relayToken=config('services.telegram-bot-api.relay_token');
+        $relayToken=config('app_errors.telegram.relay_token') ?? config('services.telegram-bot-api.relay_token');
         if ($relayToken!==null && !is_string($relayToken)) throw new \LogicException('Invalid Telegram relay credential configuration');
         $headers=[];
         if (is_string($relayToken) && $relayToken!=='') {

@@ -98,6 +98,8 @@ function fixtureConfig(?string $baseUri, ?string $relayToken): void
     $GLOBALS['telegram_fixture_config'] = [
         'services.telegram-bot-api.base_uri' => $baseUri,
         'services.telegram-bot-api.relay_token' => $relayToken,
+        'app_errors.telegram.base_uri' => null,
+        'app_errors.telegram.relay_token' => null,
         'app_errors.telegram.bot_token' => 'fixture-bot-token',
         'app_errors.telegram.chat_id' => '-1000000000000',
         'app_errors.telegram.message_thread_id' => 17,
@@ -149,6 +151,33 @@ $client = TelegramProxyFixtureHttpClient::$instances[array_key_last(TelegramProx
 $sdk = TelegramProxyFixtureSdk::$instances[array_key_last(TelegramProxyFixtureSdk::$instances)];
 checkTelegramFixture($legacy['message_id'] === 7 && $sdk->baseUri === null, 'null configuration remains backward compatible');
 checkTelegramFixture($client->options['headers'] === [], 'legacy default request has no relay header');
+
+fixtureConfig('https://native-telegram.example/api', 'fixture-native-service-credential');
+$GLOBALS['telegram_fixture_config']['app_errors.telegram.base_uri'] = $relay;
+$GLOBALS['telegram_fixture_config']['app_errors.telegram.relay_token'] = 'fixture-reporting-relay-token';
+$beforeConfig = $GLOBALS['telegram_fixture_config'];
+$isolated = (new TelegramProxyFixtureTransport())->send(fixturePayload());
+$client = TelegramProxyFixtureHttpClient::$instances[array_key_last(TelegramProxyFixtureHttpClient::$instances)];
+$sdk = TelegramProxyFixtureSdk::$instances[array_key_last(TelegramProxyFixtureSdk::$instances)];
+checkTelegramFixture($isolated['message_id'] === 7 && $sdk->baseUri === $relay, 'reporting-only endpoint takes precedence over native SDK configuration');
+checkTelegramFixture($client->options['headers'] === ['X-Service-Token' => 'fixture-reporting-relay-token'], 'only reporting relay credential reaches reporting transport');
+checkTelegramFixture($GLOBALS['telegram_fixture_config'] === $beforeConfig, 'transport leaves application-wide native SDK config unchanged');
+
+fixtureConfig(null, null);
+$GLOBALS['telegram_fixture_config']['app_errors.telegram.base_uri'] = $relay;
+$GLOBALS['telegram_fixture_config']['app_errors.telegram.relay_token'] = 'fixture-isolated-relay-token';
+$isolatedOnly = (new TelegramProxyFixtureTransport())->send(fixturePayload());
+$client = TelegramProxyFixtureHttpClient::$instances[array_key_last(TelegramProxyFixtureHttpClient::$instances)];
+$sdk = TelegramProxyFixtureSdk::$instances[array_key_last(TelegramProxyFixtureSdk::$instances)];
+checkTelegramFixture($isolatedOnly['message_id'] === 7 && $sdk->baseUri === $relay, 'isolated config works without legacy service keys');
+checkTelegramFixture($client->options['headers'] === ['X-Service-Token' => 'fixture-isolated-relay-token'], 'isolated relay credential is scoped to its request');
+
+fixtureConfig(null, null);
+$GLOBALS['telegram_fixture_config']['app_errors.telegram.base_uri'] = 'https://api.telegram.org';
+$GLOBALS['telegram_fixture_config']['app_errors.telegram.relay_token'] = 'fixture-reporting-relay-token';
+$before = count(TelegramProxyFixtureHttpClient::$instances);
+rejectTelegramFixture(static fn () => (new TelegramProxyFixtureTransport())->send(fixturePayload()), 'reporting relay credential is rejected for the official API origin');
+checkTelegramFixture(count(TelegramProxyFixtureHttpClient::$instances) === $before, 'official API credential guard runs before HTTP client creation');
 
 $before = count(TelegramProxyFixtureHttpClient::$instances);
 fixtureConfig(null, 'fixture-relay-token');
