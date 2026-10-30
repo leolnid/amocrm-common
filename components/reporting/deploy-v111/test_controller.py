@@ -12,7 +12,7 @@ class ControllerScopeTest(unittest.TestCase):
     def test_component_version_and_all_targets(self):
         self.assertEqual(self.base.RELEASE_VERSION,'1.0.11');self.assertEqual(len(self.base.ALLOWED_PROJECTS),25)
         for project in self.base.ALLOWED_PROJECTS:
-            paths={'composer.json','composer.lock'}|({'app/Console/Commands/DeliverApplicationErrors.php'} if project=='courier' else set())
+            paths={'composer.json','composer.lock','app/Console/Commands/DeliverApplicationErrors.php'}
             self.base.validate_config_change_policy(project,paths,{})
             for bad in [paths|{'config/app_errors.php'},paths|{'.env'},paths|{'app/Jobs/Replay.php'}]:
                 with self.assertRaises(self.base.Refuse):self.base.validate_config_change_policy(project,bad,{})

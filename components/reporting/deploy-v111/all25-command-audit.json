@@ -1,0 +1,251 @@
+[
+  {
+    "host": "212.113.122.159",
+    "identity_match": true,
+    "apps": [
+      {
+        "project": "almetevsk",
+        "root": "/var/www/bazacvetovalmetevsk.amorenat.ru",
+        "sha256": "ea8e4b6fc74cf1cafb17db17fcce9866b408a5c49ed1a50cf58aab4b55acdd4a",
+        "size": 672,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": true
+      },
+      {
+        "project": "amobriz",
+        "root": "/var/www/amobriz.amorenat.ru",
+        "sha256": "ea8e4b6fc74cf1cafb17db17fcce9866b408a5c49ed1a50cf58aab4b55acdd4a",
+        "size": 672,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": true
+      },
+      {
+        "project": "cvray",
+        "root": "/home/user/www/cvray.amorenat.ru",
+        "sha256": "1c0bb8608bb1ee6f0f0ba21a2bc6a39c46d1b9b01f13ae5d7b4fdda9d61b62e8",
+        "size": 657,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": true
+      },
+      {
+        "project": "documents",
+        "root": "/home/user/www/documents.amorenat.ru",
+        "sha256": "ea8e4b6fc74cf1cafb17db17fcce9866b408a5c49ed1a50cf58aab4b55acdd4a",
+        "size": 672,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": true
+      },
+      {
+        "project": "elena-repeat",
+        "root": "/home/user/www/elena911prazdnikru.amorenat.ru",
+        "sha256": "ea8e4b6fc74cf1cafb17db17fcce9866b408a5c49ed1a50cf58aab4b55acdd4a",
+        "size": 672,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": true
+      },
+      {
+        "project": "leads",
+        "root": "/home/user/www/leads-automove.amorenat.ru",
+        "sha256": "ea8e4b6fc74cf1cafb17db17fcce9866b408a5c49ed1a50cf58aab4b55acdd4a",
+        "size": 672,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": true
+      },
+      {
+        "project": "neftecamsk",
+        "root": "/var/www/bazasvetov.amorenat.ru",
+        "sha256": "ea8e4b6fc74cf1cafb17db17fcce9866b408a5c49ed1a50cf58aab4b55acdd4a",
+        "size": 672,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": true
+      },
+      {
+        "project": "poznanie",
+        "root": "/home/user/www/leads-from-poznanie-deti.amorenat.ru",
+        "sha256": "ea8e4b6fc74cf1cafb17db17fcce9866b408a5c49ed1a50cf58aab4b55acdd4a",
+        "size": 672,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": true
+      }
+    ]
+  },
+  {
+    "host": "188.225.76.118",
+    "identity_match": true,
+    "apps": [
+      {
+        "project": "bazacvetov-nignekamsk",
+        "root": "/var/www/bazacvetov-nignekamsk.amorenat.ru-releases/6e34a74b78082e3b3e7e70f2f446d2c4f3496c16",
+        "sha256": "ea8e4b6fc74cf1cafb17db17fcce9866b408a5c49ed1a50cf58aab4b55acdd4a",
+        "size": 672,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": true
+      },
+      {
+        "project": "bp1",
+        "root": "/var/www/bp1-releases/compact-a0a578e0-20261025",
+        "sha256": "1c0bb8608bb1ee6f0f0ba21a2bc6a39c46d1b9b01f13ae5d7b4fdda9d61b62e8",
+        "size": 657,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": true
+      },
+      {
+        "project": "florist",
+        "root": "/var/www/florist-releases/52de5789",
+        "sha256": "1c0bb8608bb1ee6f0f0ba21a2bc6a39c46d1b9b01f13ae5d7b4fdda9d61b62e8",
+        "size": 657,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": true
+      },
+      {
+        "project": "flower-secretary",
+        "root": "/var/www/flower-secretary-releases/4d73842bb06cf0a526dd28798c7c12bd5662a218",
+        "sha256": "ea8e4b6fc74cf1cafb17db17fcce9866b408a5c49ed1a50cf58aab4b55acdd4a",
+        "size": 672,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": true
+      },
+      {
+        "project": "frontpad",
+        "root": "/var/www/frontpad.amorenat.ru",
+        "sha256": "ea8e4b6fc74cf1cafb17db17fcce9866b408a5c49ed1a50cf58aab4b55acdd4a",
+        "size": 672,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": true
+      },
+      {
+        "project": "partners",
+        "root": "/var/www/partners-releases/compact-e13aeb96-20261024",
+        "sha256": "1c0bb8608bb1ee6f0f0ba21a2bc6a39c46d1b9b01f13ae5d7b4fdda9d61b62e8",
+        "size": 657,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": true
+      },
+      {
+        "project": "paykeeper",
+        "root": "/var/www/paykeeper-releases/compact-da929a42-20261024",
+        "sha256": "ea8e4b6fc74cf1cafb17db17fcce9866b408a5c49ed1a50cf58aab4b55acdd4a",
+        "size": 672,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": true
+      },
+      {
+        "project": "recipients",
+        "root": "/var/www/recipients-releases/compact-902489bd-20261024",
+        "sha256": "1c0bb8608bb1ee6f0f0ba21a2bc6a39c46d1b9b01f13ae5d7b4fdda9d61b62e8",
+        "size": 657,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": true
+      },
+      {
+        "project": "recurent-leads",
+        "root": "/var/www/recurent-leads-releases/compact-bb753448-20261024",
+        "sha256": "1c0bb8608bb1ee6f0f0ba21a2bc6a39c46d1b9b01f13ae5d7b4fdda9d61b62e8",
+        "size": 657,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": true
+      },
+      {
+        "project": "segments",
+        "root": "/var/www/segments-releases/compact-66560184-20261024",
+        "sha256": "1c0bb8608bb1ee6f0f0ba21a2bc6a39c46d1b9b01f13ae5d7b4fdda9d61b62e8",
+        "size": 657,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": true
+      },
+      {
+        "project": "tilda",
+        "root": "/var/www/tilda-releases/20261024-php85",
+        "sha256": "ea8e4b6fc74cf1cafb17db17fcce9866b408a5c49ed1a50cf58aab4b55acdd4a",
+        "size": 672,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": true
+      },
+      {
+        "project": "bp",
+        "root": "/var/www/bp-releases/compact-50dea816-20261024",
+        "sha256": "1c0bb8608bb1ee6f0f0ba21a2bc6a39c46d1b9b01f13ae5d7b4fdda9d61b62e8",
+        "size": 657,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": true
+      },
+      {
+        "project": "flowwow-ms",
+        "root": "/var/www/flowwow-ms-releases/20261029-control-dd29317",
+        "sha256": "45b8835fd20bc090a115520dd0fe6f16b4855672c6b1a784d7742cb5ac67e7a8",
+        "size": 682,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": false
+      },
+      {
+        "project": "salesbots",
+        "root": "/var/www/salesbots-launcher-releases/compact-7173202b-20261024",
+        "sha256": "1c0bb8608bb1ee6f0f0ba21a2bc6a39c46d1b9b01f13ae5d7b4fdda9d61b62e8",
+        "size": 657,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": true
+      },
+      {
+        "project": "contact-channel",
+        "root": "/var/www/contact-channel-releases/compact-1728a256-20261025",
+        "sha256": "1c0bb8608bb1ee6f0f0ba21a2bc6a39c46d1b9b01f13ae5d7b4fdda9d61b62e8",
+        "size": 657,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": true
+      }
+    ]
+  },
+  {
+    "host": "81.200.158.173",
+    "identity_match": true,
+    "apps": [
+      {
+        "project": "courier",
+        "root": "/var/www/bazasvetov-courier.amorenat.ru",
+        "sha256": "ea8e4b6fc74cf1cafb17db17fcce9866b408a5c49ed1a50cf58aab4b55acdd4a",
+        "size": 672,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": true
+      }
+    ]
+  },
+  {
+    "host": "5.129.206.94",
+    "identity_match": true,
+    "apps": [
+      {
+        "project": "mc",
+        "root": "/var/www/mc.amorenat.ru",
+        "sha256": "ea8e4b6fc74cf1cafb17db17fcce9866b408a5c49ed1a50cf58aab4b55acdd4a",
+        "size": 672,
+        "legacy_review_failure": true,
+        "shared_command": false,
+        "known_signature": true
+      }
+    ]
+  }
+]

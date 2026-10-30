@@ -88,12 +88,18 @@ abstract class LaravelErrorReporter
             }
             $metadata=LaravelMetadataContext::withIdentity($metadata,$business,$message);
             if ($message!==null) {
+                $items=$message->context;
                 $runtimeContext=$metadata['scheduled_command']??$metadata['console_command']??$metadata['job_class']??null;
                 if (is_string($runtimeContext)&&$runtimeContext!=='unknown'&&preg_match('/^[A-Za-z_][A-Za-z0-9_\\\\:_-]{0,119}$/D',$runtimeContext)) {
                     $label=isset($metadata['job_class'])?'Задание':'Команда';
-                    $items=[...$message->context,\Leolnid\Common\Reporting\Errors\ErrorContextItem::loaded('runtime_operation',$label,null,$runtimeContext)];
-                    $message=new \Leolnid\Common\Reporting\Errors\ErrorMessage($message->project,$message->projectUrl,$message->failure,$message->reason,$message->objects,$message->test,$items,$message->eventCode,$message->repeatCount);
+                    $items[]=\Leolnid\Common\Reporting\Errors\ErrorContextItem::loaded('runtime_operation',$label,null,$runtimeContext);
                 }
+                if (!$test&&$message->reason->code==='processing_error') {
+                    $chain=\Leolnid\Common\Reporting\Errors\FailureClassifier::diagnosticChain($error);$rootCause=$chain[array_key_last($chain)];
+                    $items[]=\Leolnid\Common\Reporting\Errors\ErrorContextItem::loaded('error_source','Место ошибки',null,$rootCause['source_file'].':'.$rootCause['source_line']);
+                    if (is_int($rootCause['exception_code'])&&$rootCause['exception_code']!==0) $items[]=\Leolnid\Common\Reporting\Errors\ErrorContextItem::loaded('exception_code','Код исключения',null,(string)$rootCause['exception_code']);
+                }
+                $message=new \Leolnid\Common\Reporting\Errors\ErrorMessage($message->project,$message->projectUrl,$message->failure,$message->reason,$message->objects,$message->test,$items,$message->eventCode,$message->repeatCount);
             }
             if ($unknownFallback) $metadata['unknown_operation_fallback']=true;
             $health=null;

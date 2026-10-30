@@ -5,7 +5,7 @@
     "src/Reporting/Capture/AbstractLoadedContextObserver.php": "247bd2f28f694baf0f5bb088fb1f18c30176f3f98c113ce958a6dd955a4cda3d",
     "src/Reporting/Capture/LaravelDeliverApplicationErrors.php": "97a46b9371e634e41ee087d9b8bcb122f23674d83fc50661d3d877178285c961",
     "src/Reporting/Capture/LaravelErrorOutbox.php": "b8d7107eeb5caac36d1d9e4388b6e3b31c20739e924e0d5f3a7cc304cc63a35d",
-    "src/Reporting/Capture/LaravelErrorReporter.php": "171704c3793becb432372e88032eaedc923acef70afc959ba7aed9b702a0168d",
+    "src/Reporting/Capture/LaravelErrorReporter.php": "ff975d4b373626d4f0132304b8ae0c18def99b7f22c052c234706c51b844bf44",
     "src/Reporting/Capture/LaravelErrorServiceProvider.php": "eec0a1c0bd847cbc73d224830285a42c10eb4b1c18b65784c6c70bd266717fc6",
     "src/Reporting/Capture/LaravelMetadataContext.php": "1add41ff879e670a97df0176a59ce42af85992192109a434bd3ca727f090d55e",
     "src/Reporting/Capture/LaravelTelegramTransport.php": "594f9741e8efcc432b3d21de0db6623a2029e8d0540fd47c171cccd77324bbc6",

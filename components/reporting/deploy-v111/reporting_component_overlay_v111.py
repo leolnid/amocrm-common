@@ -60,15 +60,21 @@ def expected_config_changes(project):
  return {}
 
 def validate_config_change_policy(project,source_paths,config_changes):
- expected_files={'composer.json','composer.lock'}|({'app/Console/Commands/DeliverApplicationErrors.php'} if project=='courier' else set())
+ expected_files={'composer.json','composer.lock','app/Console/Commands/DeliverApplicationErrors.php'}
  need(project in ALLOWED_PROJECTS and set(source_paths)==expected_files,'source_path_not_exact_v111_scope')
  need(config_changes=={},'configuration_changes_forbidden_v111_scope')
+
+DELIVERY_COMMAND='app/Console/Commands/DeliverApplicationErrors.php'
+DELIVERY_COMMAND_OLD_HASHES={'1c0bb8608bb1ee6f0f0ba21a2bc6a39c46d1b9b01f13ae5d7b4fdda9d61b62e8', 'ea8e4b6fc74cf1cafb17db17fcce9866b408a5c49ed1a50cf58aab4b55acdd4a', '45b8835fd20bc090a115520dd0fe6f16b4855672c6b1a784d7742cb5ac67e7a8'}
+DELIVERY_COMMAND_NEW_HASH='2457da71f0cc1670c06ffdc2bb83409c8c0d4eb22cd8ec85c49488db5471645b'
 
 def validate_source_paths(project,source_paths,live_files=None,candidate_files=None):
  validate_config_change_policy(project,source_paths,expected_config_changes(project))
  if live_files is not None and candidate_files is not None:
   changed={k for k in set(live_files)|set(candidate_files) if live_files.get(k)!=candidate_files.get(k)}
   need(changed==set(source_paths),'full_source_delta_not_exact')
+  need(live_files.get(DELIVERY_COMMAND)in DELIVERY_COMMAND_OLD_HASHES,'delivery_command_preimage_not_reviewed')
+  need(candidate_files.get(DELIVERY_COMMAND)==DELIVERY_COMMAND_NEW_HASH,'delivery_command_candidate_not_reviewed')
 def wrap_core_validate_profile(core_validator):
  def validate(profile):
   project=profile.get('project') if isinstance(profile,dict) else None
