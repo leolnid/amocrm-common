@@ -20,8 +20,14 @@ final class FailureClassifier
         for ($depth=0;$depth<5 && !isset($seen[$error]);$depth++) {
             $seen[$error]=true;$class=$error::class;$crm=str_starts_with($class,'AmoCRM\\');$httpClient=is_a($error,'Illuminate\\Http\\Client\\RequestException')||is_a($error,'Illuminate\\Http\\Client\\ConnectionException')||is_a($error,'GuzzleHttp\\Exception\\RequestException')||is_a($error,'GuzzleHttp\\Exception\\ConnectException');$current=$crm?'amocrm':(($service==='internal'&&$httpClient)?'external':$service);
             if (is_a($error,'AmoCRM\\Exceptions\\InvalidArgumentException') && str_starts_with($error->getMessage(),'Error parsing given access token.')) return new ErrorReason('credential_format','amocrm');
-            if (is_a($error,'PhpImap\\Exceptions\\ConnectionException')) return new ErrorReason('mail_connection_failed','mail');
+            if (is_a($error,'PhpImap\\Exceptions\\ConnectionException')) {
+                $detail=$error->getMessage();
+                if (str_contains($detail,'Connection refused')&&str_contains($detail,'No route to host')) return new ErrorReason('mail_connection_refused_route','mail');
+                if (str_contains(str_replace('\\/','/',$detail),'TLS/SSL failure')&&str_contains($detail,'SSL negotiation failed')) return new ErrorReason('mail_tls_failed','mail');
+                return new ErrorReason('mail_connection_failed','mail');
+            }
             if (is_a($error,'PhpImap\\Exceptions\\InvalidParameterException')) return new ErrorReason('mail_configuration_error','mail');
+            if ($error instanceof \TypeError && self::isImapConnectionTypeError($error)) return new ErrorReason('mail_diagnostics_missing','mail');
             if ($error instanceof \TypeError) return new ErrorReason('data_type');
             if ($error instanceof \ValueError) return new ErrorReason('value_error');
             if ($error instanceof \PDOException || is_a($error,'Illuminate\\Database\\QueryException')) return new ErrorReason('database_error');
@@ -29,6 +35,12 @@ final class FailureClassifier
                 if (is_a($error,'Illuminate\\Http\\Client\\ConnectionException')) $fallback=new ErrorReason('connection_failed',$current);
                 if (is_a($error,'GuzzleHttp\\Exception\\ConnectException')) {
                     $context=method_exists($error,'getHandlerContext')?$error->getHandlerContext():[];
+                    $request=method_exists($error,'getRequest')?$error->getRequest():null;
+                    $uri=is_object($request)&&method_exists($request,'getUri')?$request->getUri():null;
+                    $host=is_object($uri)&&method_exists($uri,'getHost')?strtolower((string)$uri->getHost()):'';
+                    if (is_array($context)&&($context['errno']??null)===28
+                        && preg_match('/(?:^|\.)amocrm\.(?:ru|com)$/D',$host)
+                        && str_contains($error->getMessage(),'Resolving timed out after 5000 milliseconds')) return new ErrorReason('amo_dns_failed','amocrm');
                     if (is_array($context) && ($context['errno']??null)===28) return new ErrorReason('timeout',$current);
                     $fallback=new ErrorReason('connection_failed',$current);
                 }
@@ -57,7 +69,31 @@ final class FailureClassifier
             } catch (\Throwable) { /* Faulty metadata access never changes the original business exception. */ }
             $previous=$error->getPrevious();if ($previous===null) break;$error=$previous;
         }
-        return $fallback??new ErrorReason('processing_error','internal',null,null,null,null,self::safeExceptionClass($original::class));
+        return $fallback??new ErrorReason('processing_error','internal',null,null,self::safeDetail($error->getMessage()),null,self::safeExceptionClass($error::class));
+    }
+    private static function isImapConnectionTypeError(\TypeError $error): bool
+    {
+        $message=$error->getMessage();
+        return str_starts_with($message,'PhpImap\\Exceptions\\ConnectionException::__construct()')
+            && str_contains($message,'array,') && str_contains($message,'false given')
+            && str_contains(str_replace('\\','/',$message),'php-imap/php-imap/src/PhpImap/Imap.php');
+    }
+    /** Keep every causal exception, without serializing arguments, SQL, HTTP bodies or credentials. */
+    public static function diagnosticChain(\Throwable $error): array
+    {
+        $chain=[];$seen=new \WeakMap;
+        while (!isset($seen[$error])) {
+            $seen[$error]=true;
+            $reason=self::classify($error);
+            $file=str_replace('\\','/',$error->getFile());
+            $chain[]=['exception_class'=>self::safeExceptionClass($error::class),'exception_code'=>is_int($error->getCode())?$error->getCode():null,
+                'reason_code'=>$reason->code,'service_code'=>$reason->service,'http_status'=>$reason->httpStatus,
+                'safe_message'=>self::safeDetail($error->getMessage(),4096),
+                'source_file'=>preg_match('~(?:^|/)((?:app|src|vendor|tests)/[A-Za-z0-9_./-]+\.php)$~D',$file,$match)===1?$match[1]:(preg_match('/^[A-Za-z0-9_.-]{1,120}$/D',basename($file))===1?basename($file):'unknown'),
+                'source_line'=>$error->getLine()];
+            $previous=$error->getPrevious();if ($previous===null) break;$error=$previous;
+        }
+        return $chain;
     }
     private static function upstreamHost(\Throwable $error): ?string
     {
@@ -80,7 +116,7 @@ final class FailureClassifier
         return preg_match('/^[A-Za-z_][A-Za-z0-9_\\\\]{0,119}$/D',$class)===1?$class:'Throwable';
     }
     /** Return only a short human-readable fragment after conservative secret/PII/path removal. */
-    public static function safeDetail(string $message): ?string
+    public static function safeDetail(string $message, int $limit=160): ?string
     {
         if (!preg_match('//u',$message)) return null;
         $detail=strip_tags($message);
@@ -101,8 +137,9 @@ final class FailureClassifier
         $detail=preg_replace('/[\x00-\x1f\x7f]+/u',' ',$detail)??'';
         $detail=trim(preg_replace('/\s+/u',' ',$detail)??'');
         if ($detail==='' || preg_match('/^(?:\[скрыто\]|\[ссылка\]|\[адрес скрыт\]|\[путь скрыт\]|\[данные скрыты\])(?:\s|$)/u',$detail)) return null;
-        if (function_exists('mb_substr')) $detail=mb_substr($detail,0,160,'UTF-8');
-        else $detail=substr($detail,0,160);
+        $limit=max(1,min(4096,$limit));
+        if (function_exists('mb_substr')) $detail=mb_substr($detail,0,$limit,'UTF-8');
+        else { $chars=preg_split('//u',$detail,-1,PREG_SPLIT_NO_EMPTY);$detail=implode('',array_slice($chars?:[],0,$limit)); }
         return preg_match('//u',$detail)===1 && trim($detail)!=='' ? trim($detail) : null;
     }
     private static function status(mixed $value): ?int

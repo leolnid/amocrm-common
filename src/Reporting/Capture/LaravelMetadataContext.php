@@ -6,6 +6,13 @@ final class LaravelMetadataContext
 {
     public static function collect(\Throwable $error, array $context, array $definition, ?string $consoleCommand, bool $test): array
     {
+        // Laravel's scheduler wrapper may reach the handler after event scope was cleared.
+        // Recover only an exact artisan command and exit status; never copy shell arguments.
+        if (!$test && !in_array($context['source']??null,['queue','http','scheduler'],true)
+            && preg_match("~^Scheduled command \\[.*?'artisan' '?([A-Za-z0-9:_-]{1,100})'?\\] failed with exit code \\[([1-9][0-9]{0,2})\\]\\.$~D",$error->getMessage(),$scheduled)===1
+            && (int)$scheduled[2]<=255) {
+            $context=['source'=>'scheduler','scheduled_command'=>$scheduled[1],'command_exit_code'=>(int)$scheduled[2],'scheduled_wrapper_failure'=>true]+$context;
+        }
         $project=(string)config('app_errors.project','application');$server=(string)config('app_errors.server','unknown');
         if (!preg_match('/^[A-Za-z0-9_.-]{1,64}$/D',$project)) $project='application';
         if (!preg_match('/^[A-Za-z0-9_.:-]{1,64}$/D',$server)) $server='unknown';
@@ -63,6 +70,6 @@ final class LaravelMetadataContext
     }
     private static function command(mixed $name, array $definition): string
     {
-        return is_string($name)&&preg_match('/^[A-Za-z0-9:_-]{1,100}$/D',$name)&&isset($definition['operations']['command:'.$name])?$name:'unknown';
+        return is_string($name)&&preg_match('/^[A-Za-z0-9:_-]{1,100}$/D',$name)&&(isset($definition['operations']['command:'.$name])||in_array($name,['app-errors:deliver','app-errors:test','reports:daily'],true))?$name:'unknown';
     }
 }

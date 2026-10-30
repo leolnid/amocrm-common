@@ -4,7 +4,7 @@ namespace Leolnid\Common\Reporting\Errors;
 final readonly class ErrorReason
 {
     private const SERVICES = ['amocrm'=>'amoCRM', 'moysklad'=>'МойСклад', 'flowwow'=>'Flowwow', 'external'=>'внешний сервис', 'internal'=>'приложение', 'mail'=>'почтовый сервер'];
-    private const CODES = ['field_mapping','photo_unavailable','data_type','value_error','database_error','internal_error','credential_format','request_rejected','access_rejected','rate_limited','unavailable','timeout','connection_failed','http_error','object_not_found','multiple_contacts','processing_error','command_failed','mail_connection_failed','mail_configuration_error'];
+    private const CODES = ['field_mapping','photo_unavailable','data_type','value_error','database_error','internal_error','credential_format','request_rejected','access_rejected','rate_limited','unavailable','timeout','connection_failed','http_error','object_not_found','multiple_contacts','processing_error','command_failed','mail_connection_failed','mail_configuration_error','mail_connection_refused_route','mail_tls_failed','mail_diagnostics_missing','amo_dns_failed','ambiguous_contact','migration_hold','client_not_found','required_fields_missing','document_xml_invalid'];
     public function __construct(public string $code, public string $service = 'internal', public ?int $httpStatus = null, public ?int $exitCode = null, public ?string $safeDetail = null, public ?string $upstreamHost = null, public ?string $exceptionClass = null)
     {
         if (!in_array($code, self::CODES, true) || !isset(self::SERVICES[$service]) || ($httpStatus !== null && ($httpStatus < 400 || $httpStatus > 599))) throw new \InvalidArgumentException('Unknown notification reason');
@@ -13,7 +13,8 @@ final readonly class ErrorReason
         if ($safeDetail !== null) ErrorMessage::text($safeDetail,160);
         if ($exceptionClass !== null && ($code !== 'processing_error' || preg_match('~^[A-Za-z_][A-Za-z0-9_\\\\]{0,119}$~D',$exceptionClass)!==1)) throw new \InvalidArgumentException('Invalid safe exception class');
         if ($upstreamHost !== null && ($httpStatus === null || $service === 'internal' || !self::isUpstreamHost($upstreamHost))) throw new \InvalidArgumentException('Invalid upstream host metadata');
-        if ($httpStatus !== null && !in_array($code,['request_rejected','access_rejected','rate_limited','unavailable','http_error','object_not_found'],true)) throw new \InvalidArgumentException('Reason has no HTTP status');
+        if ($httpStatus !== null && !in_array($code,['request_rejected','access_rejected','rate_limited','unavailable','http_error','object_not_found','required_fields_missing'],true)) throw new \InvalidArgumentException('Reason has no HTTP status');
+        if ($code==='required_fields_missing' && ($service!=='moysklad'||($httpStatus!==null&&$httpStatus!==400))) throw new \InvalidArgumentException('Invalid required-field rejection');
         if ($httpStatus !== null && (($code==='access_rejected' && !in_array($httpStatus,[401,403],true)) || ($code==='rate_limited' && $httpStatus!==429) || ($code==='object_not_found' && $httpStatus!==404) || ($code==='unavailable' && $httpStatus<500))) throw new \InvalidArgumentException('Reason and HTTP status disagree');
         if (in_array($code, ['request_rejected','access_rejected','rate_limited','unavailable','timeout','connection_failed','http_error','object_not_found'], true) && $service === 'internal') throw new \InvalidArgumentException('External notification service required');
     }
@@ -39,8 +40,17 @@ final readonly class ErrorReason
             'http_error'=>$service.' вернул'.($this->service === 'amocrm' ? 'а' : '').' ошибку'.$status.$host,
             'object_not_found'=>'Объект не найден в '.$service,
             'multiple_contacts'=>'Найдено несколько контактов с одним телефоном',
-            'processing_error'=>$this->exceptionClass!==null?'Непредвиденная ошибка обработки ('.self::shortClass($this->exceptionClass).'). Передайте код события в поддержку':($this->safeDetail??'Непредвиденная ошибка обработки. Передайте код события в поддержку'),
+            'processing_error'=>($this->safeDetail??'Непредвиденная ошибка обработки').($this->exceptionClass!==null?' ('.self::shortClass($this->exceptionClass).')':''),
             'command_failed'=>'Команда завершилась с кодом '.$this->exitCode,
+            'mail_connection_refused_route'=>'IMAP: соединение отклонено, нет маршрута к серверу',
+            'mail_tls_failed'=>'Не удалось согласовать TLS с почтовым сервером',
+            'mail_diagnostics_missing'=>'Подключение к IMAP не удалось; библиотека не вернула диагностику',
+            'document_xml_invalid'=>'Сформированный DOCX содержит некорректный XML; PDF не создан',
+            'ambiguous_contact'=>'Найдено несколько контактов; автоматическая привязка остановлена',
+            'migration_hold'=>'Обработка остановлена до согласования миграции',
+            'client_not_found'=>'Клиент бонусной программы не найден',
+            'required_fields_missing'=>'МойСклад отклонил сохранение: не заполнены обязательные поля',
+            'amo_dns_failed'=>'Не удалось разрешить DNS-имя amoCRM за 5 сек',
             'mail_connection_failed'=>'Нет соединения с почтовым сервером',
             'mail_configuration_error'=>'Ошибка настройки подключения к почте',
         };

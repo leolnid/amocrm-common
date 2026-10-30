@@ -123,6 +123,7 @@ final class ContextAdapter
     {
         $reasons=[];
         foreach (['crm_400'=>['request_rejected','amocrm',400],'crm_4xx'=>['request_rejected','amocrm'],'crm_auth'=>['access_rejected','amocrm'],'crm_rate'=>['rate_limited','amocrm'],'crm_unavailable'=>['unavailable','amocrm'],'remote_400'=>['request_rejected','external',400],'remote_4xx'=>['request_rejected','external'],'remote_auth'=>['access_rejected','external'],'remote_rate'=>['rate_limited','external'],'remote_unavailable'=>['unavailable','external'],'type_error'=>['data_type','internal'],'value_error'=>['value_error','internal'],'database_error'=>['database_error','internal'],'internal_error'=>['processing_error','internal'],'mail_connection_failed'=>['mail_connection_failed','mail'],'mail_configuration_error'=>['mail_configuration_error','mail']] as $key=>$row) $reasons[$key]=['code'=>$row[0],'service'=>$row[1],'status'=>$row[2]??null];
+        foreach (['document_xml_invalid'=>'internal','ambiguous_contact'=>'internal','migration_hold'=>'internal','client_not_found'=>'internal','required_fields_missing'=>'moysklad','mail_connection_refused_route'=>'mail','mail_tls_failed'=>'mail','mail_diagnostics_missing'=>'mail','amo_dns_failed'=>'amocrm'] as $code=>$service) $reasons[$code]=['code'=>$code,'service'=>$service];
         return $reasons;
     }
     private static function action(array $data, array $spec): ErrorAction

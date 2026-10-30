@@ -24,7 +24,8 @@ final class ErrorReporter
         try {
             $correlation = $this->correlations[$error] ??= bin2hex(random_bytes(8));
             $test = $message?->test ?? false;
-            $this->write('error', $test ? 'TEST application error reporting' : 'Application error', $metadata + ['event_kind'=>'application_error', 'is_test'=>$test, 'occurred_at_utc'=>gmdate('c'), 'correlation_id'=>$correlation]);
+            $diagnostics=FailureClassifier::diagnosticChain($error);
+            $this->write('error', $test ? 'TEST application error reporting' : 'Application error', $metadata + ['event_kind'=>'application_error', 'is_test'=>$test, 'occurred_at_utc'=>gmdate('c'), 'correlation_id'=>$correlation,'exception_chain'=>$diagnostics,'root_cause'=>$diagnostics[array_key_last($diagnostics)]]);
             if ($message === null || !$allowRemote || ($this->ready)() !== true || isset($this->observed[$error])) return false;
             if (!($health === null ? $this->deduplicator->first($metadata) : $this->deduplicator->firstHealth($health))) return false;
             $this->observed[$error] = true;
@@ -36,7 +37,7 @@ final class ErrorReporter
                 try { ($this->outbox)($payload, $delivery); $queued=true; }
                 catch (\Throwable $failure) { $this->write('critical', 'Application error outbox unavailable', ['failure_class'=>self::exceptionName($failure)]); }
                 if ($queued) $this->deduplicator->acknowledgeRepeats();
-                $this->write('warning', 'Application error notification delivery failed', ['failure_class'=>self::exceptionName($delivery), 'correlation_id'=>$correlation]);
+                $this->write('warning', 'Application error notification delivery failed', ['failure_class'=>self::exceptionName($delivery), 'correlation_id'=>$correlation,'exception_chain'=>FailureClassifier::diagnosticChain($delivery)]);
                 return false;
             }
         } catch (\Throwable $failure) {

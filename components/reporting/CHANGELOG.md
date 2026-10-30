@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.11
+
+- Preserve sanitized causal exception chains, numeric codes, source locations and root causes in local application and delivery diagnostics.
+- Render a safe specific cause for unknown failures and available runtime command/job context; remove the support-code handoff text.
+- Classify proven PhpImap connection, TLS, missing-diagnostics and amoCRM five-second DNS failures without exposing credentials or response bodies.
+- Recover scheduler wrapper command/exit context and prevent reporting commands from recursively notifying themselves.
+- Provide a shared delivery command that records deduplicated manual-review counts while exhausted historic envelopes remain untouched and do not fail every scheduler slot.
+
 ## 1.0.10
 
 - Read the technical-reporting Telegram relay from the isolated `app_errors.telegram` config namespace before the legacy service keys, so native Laravel Telegram SDK configuration is not redirected.

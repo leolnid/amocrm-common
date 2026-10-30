@@ -112,6 +112,7 @@ class FilesystemOutbox
                 'http_status' => $status,
                 'service_host' => $serviceHost,
                 'reason_bucket' => $reason,
+                'exception_chain' => \Leolnid\Common\Reporting\Errors\FailureClassifier::diagnosticChain($error),
             ];
             $message = 'Common reporting outbox delivery failed';
             if (class_exists(\Illuminate\Support\Facades\Log::class)) {

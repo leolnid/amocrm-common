@@ -68,6 +68,9 @@ abstract class LaravelErrorReporter
             $scope=$this->context;
             if ($this->failedExit!==null && !in_array($scope['source']??null,['queue','scheduler'],true)) $scope+=['source'=>'console','command_exit_code'=>$this->failedExit];
             $metadata=LaravelMetadataContext::collect($error,$scope,$this->definition,$this->consoleSelector(),$test);
+            $reportingCommand=$metadata['scheduled_command']??$metadata['console_command']??null;
+            // A delivery failure must never enqueue another delivery notification.
+            if (!$test&&in_array($reportingCommand,['app-errors:deliver','app-errors:test'],true)) $allowRemote=false;
             if(!$test&&($metadata['scheduled_wrapper_failure']??false)===true&&ScheduledRunBridge::isActiveParentId($metadata['scheduled_run_id']??null)&&ScheduledRunBridge::delivered($metadata))$allowRemote=false;
             if (!$test) $business=$this->refineContextForFailure($this->business[$error]??$this->activeBusiness,$error,$metadata,$scope);
             if($business!==null&&(($data=get_object_vars($business))['kind']??null)==='unmapped_loaded_context'&&!is_string($data['operation']??null)){
@@ -84,6 +87,14 @@ abstract class LaravelErrorReporter
                 if ($unknownFallback && $this->isBenignUnknownHttpFailure($error,$metadata)) $allowRemote=false;
             }
             $metadata=LaravelMetadataContext::withIdentity($metadata,$business,$message);
+            if ($message!==null) {
+                $runtimeContext=$metadata['scheduled_command']??$metadata['console_command']??$metadata['job_class']??null;
+                if (is_string($runtimeContext)&&$runtimeContext!=='unknown'&&preg_match('/^[A-Za-z_][A-Za-z0-9_\\\\:_-]{0,119}$/D',$runtimeContext)) {
+                    $label=isset($metadata['job_class'])?'Задание':'Команда';
+                    $items=[...$message->context,\Leolnid\Common\Reporting\Errors\ErrorContextItem::loaded('runtime_operation',$label,null,$runtimeContext)];
+                    $message=new \Leolnid\Common\Reporting\Errors\ErrorMessage($message->project,$message->projectUrl,$message->failure,$message->reason,$message->objects,$message->test,$items,$message->eventCode,$message->repeatCount);
+                }
+            }
             if ($unknownFallback) $metadata['unknown_operation_fallback']=true;
             $health=null;
             $healthAction=match ($metadata['scheduled_command']??$metadata['console_command']??'') {'health:check'=>'health_checks','health:queue-check-heartbeat'=>'queue_heartbeat','health:schedule-check-heartbeat'=>'scheduler_heartbeat',default=>null};
@@ -124,11 +135,11 @@ abstract class LaravelErrorReporter
     {
         if (!$this->consoleStack) {$this->failedConsole=null;$this->failedExit=null;}
         if (count($this->consoleStack)>=16) {$this->clearConsoleContext();return;}
-        $this->consoleStack[]=isset($this->definition['operations']['command:'.$name])?$name:'unknown';
+        $this->consoleStack[]=(isset($this->definition['operations']['command:'.$name])||in_array($name,['app-errors:deliver','app-errors:test','reports:daily'],true))?$name:'unknown';
     }
     public function consoleFinished(string $name, int $exitCode): void
     {
-        $name=isset($this->definition['operations']['command:'.$name])?$name:'unknown';
+        $name=(isset($this->definition['operations']['command:'.$name])||in_array($name,['app-errors:deliver','app-errors:test','reports:daily'],true))?$name:'unknown';
         if (!$this->consoleStack||array_pop($this->consoleStack)!==$name) {$this->clearConsoleContext();return;}
         $this->failedConsole=$exitCode!==0&&$name!=='unknown'?$name:null;$this->failedExit=$this->failedConsole!==null&&$exitCode>0&&$exitCode<=255?$exitCode:null;
     }

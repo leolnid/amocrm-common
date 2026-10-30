@@ -38,3 +38,19 @@ The shared reporter renders a linked project heading when an authenticated admin
 Applications may extend `Leolnid\Common\Reporting\Capture\AbstractLoadedContextObserver` with a fixed `LABELS` catalog. It provides `attachEntity`, `attachEntities`, `attachId`, and `merge` for already-loaded typed objects; it does not fetch entities or call external APIs. The failure refinement hook receives existing metadata and scope while the original two-argument hook remains compatible.
 
 Run the repository fixtures with `php tests/reporting/run.php`. They use a fake transport and synthetic configuration; they do not send notifications or perform business writes.
+
+## Diagnostic and delivery contract (1.0.11)
+
+Unknown failures include a sanitized causal detail when available. Every local error
+record preserves the complete exception chain with safe messages, numeric codes,
+relative source locations and the root cause. Raw HTTP bodies, credentials, SQL and
+exception arguments are excluded. Runtime command/job identity supplements the
+application's typed entity context. Event codes remain correlation aids.
+
+Reporting delivery failures remain local to prevent recursive notifications. Daily
+report failures continue to notify normally. Applications may extend
+`Capture\LaravelDeliverApplicationErrors` and delegate to `deliverOutbox`: historical
+exhausted/corrupt/interrupted records produce a deduplicated manual-review warning
+and successful command exit. Genuine drain exceptions still propagate. No records
+are deleted, replayed or reset by this policy. Review `rollout-1.0.11.md` and the
+hash-pinned `deploy-v111` controller before applying per-target fresh scopes.
